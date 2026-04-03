@@ -25,6 +25,9 @@ const DEFAULT_SETTINGS = {
   watchChannelId: null,
   minMessages: 1,              // min messages to count as active chatter
   managerRoleId: null,         // role that can use /vm setup, /vm configure, and bypass unmute penalties
+  auditChannelId: null,        // channel for short audit logs (separate from watch channel)
+  boostImmunity: true,         // whether boosts grant immunity
+  boostImmunityDuration: 60,   // minutes of immunity from boosting
 };
 
 const initiatorCooldowns = new Collection();

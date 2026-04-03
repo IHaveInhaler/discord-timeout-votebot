@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const { recentChatters, getSettings, getActiveChatters, getStats, reminderChannels, trackChatter } = require('./utils/state');
 const { getActivityMessage, reminderTips, calloutTemplates } = require('./utils/display');
-const { handleVoteMute, handleButton } = require('./handlers/votemute');
+const { handleVoteMute, handleButton, setClient } = require('./handlers/votemute');
 const { handleVmSettings, handleTheme, handleSelectMenu, handleModal, handleDashboardButton, handleSetupButton, handleSetupChannel } = require('./handlers/settings');
 const { setupEvents } = require('./handlers/events');
 
@@ -35,7 +35,7 @@ client.on('interactionCreate', async (interaction) => {
     } else if (interaction.isButton()) {
       if (interaction.customId.startsWith('vm_dash_')) {
         await handleDashboardButton(interaction);
-      } else if (interaction.customId.startsWith('vm_setup_') && !interaction.customId.includes('channel')) {
+      } else if (interaction.customId.startsWith('vm_setup_')) {
         await handleSetupButton(interaction);
       } else {
         await handleButton(interaction, client);
@@ -57,6 +57,9 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 });
+
+// Pass client to votemute for audit logging
+setClient(client);
 
 // Setup boost/unmute detection events
 setupEvents(client);

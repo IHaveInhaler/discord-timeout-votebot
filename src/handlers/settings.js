@@ -243,7 +243,7 @@ async function handleVmSettings(interaction) {
 const WICK_ID = '536991182035746816';
 
 function getSetupPages(hasWick) {
-  const pages = ['permissions', 'watch_channel'];
+  const pages = ['permissions', 'watch_channel', 'audit_channel'];
   if (hasWick) pages.push('wick');
   pages.push('vote_settings', 'fun_stuff', 'summary');
   return pages;
@@ -312,6 +312,32 @@ function buildSetupPage(pageName, guild, settings, pages) {
     const navRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`vm_setup_goto_${prevPage}`).setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`vm_setup_goto_${nextPage}`).setLabel('Next \u2192').setStyle(ButtonStyle.Primary),
+    );
+    return { embeds: [embed], components: [channelRow, navRow] };
+  }
+
+  if (pageName === 'audit_channel') {
+    const auditDisplay = settings.auditChannelId ? `<#${settings.auditChannelId}>` : 'Not set (optional)';
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle(`\uD83D\uDD27 Setup Wizard \u2014 Step ${pageNum}/${totalPages}: Audit Log Channel`)
+      .setDescription('**Optional.** Pick a channel for short audit logs. This is separate from the watch channel \u2014 it only gets compact one-line entries for mutes, unmutes, votes, and boosts.')
+      .addFields(
+        { name: '\uD83D\uDCDD Current Audit Channel', value: auditDisplay },
+        { name: '\u2139\uFE0F Watch Channel vs Audit Channel', value: '**Watch Channel** = full embeds, announcements, callouts\n**Audit Channel** = compact logs for moderation tracking' },
+      )
+      .setFooter({ text: `Step ${pageNum} of ${totalPages} \u2022 Optional \u2014 skip if you don't need audit logs` });
+
+    const channelRow = new ActionRowBuilder().addComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId('vm_setup_audit_channel')
+        .setPlaceholder('Select audit log channel (optional)...')
+        .setChannelTypes(ChannelType.GuildText),
+    );
+    const navRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${prevPage}`).setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${nextPage}`).setLabel(settings.auditChannelId ? 'Next \u2192' : 'Skip \u2192').setStyle(ButtonStyle.Primary),
     );
     return { embeds: [embed], components: [channelRow, navRow] };
   }
@@ -424,8 +450,11 @@ function buildSetupPage(pageName, guild, settings, pages) {
 }
 
 async function handleSetup(interaction) {
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
-    return interaction.reply({ content: 'Only administrators can run setup.', flags: 64 });
+  const setupSettings = getSettings(interaction.guild.id);
+  const hasPerms = interaction.memberPermissions.has(PermissionFlagsBits.Administrator) ||
+    (setupSettings.managerRoleId && interaction.member.roles.cache.has(setupSettings.managerRoleId));
+  if (!hasPerms) {
+    return interaction.reply({ content: 'Only administrators or bot managers can run setup.', flags: 64 });
   }
 
   const hasWick = !!(await interaction.guild.members.fetch(WICK_ID).catch(() => null));
@@ -436,14 +465,22 @@ async function handleSetup(interaction) {
 }
 
 async function handleSetupButton(interaction) {
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
-    return interaction.reply({ content: 'Only administrators can use setup.', flags: 64 });
+  const btnSettings = getSettings(interaction.guild.id);
+  const hasBtnPerms = interaction.memberPermissions.has(PermissionFlagsBits.Administrator) ||
+    (btnSettings.managerRoleId && interaction.member.roles.cache.has(btnSettings.managerRoleId));
+  if (!hasBtnPerms) {
+    return interaction.reply({ content: 'Only administrators or bot managers can use setup.', flags: 64 });
   }
 
   const id = interaction.customId;
   const settings = getSettings(interaction.guild.id);
   const hasWick = !!(interaction.guild.members.cache.get(WICK_ID));
   const pages = getSetupPages(hasWick);
+
+  // Theme button from fun_stuff page — open theme selector instead of navigating
+  if (id === 'vm_setup_goto_theme') {
+    return handleTheme(interaction);
+  }
 
   // Navigation: goto page
   const gotoMatch = id.match(/^vm_setup_goto_(.+)$/);
@@ -484,24 +521,34 @@ async function handleSetupButton(interaction) {
 }
 
 async function handleSetupChannel(interaction) {
-  if (interaction.customId !== 'vm_setup_channel') return;
-
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
-    return interaction.reply({ content: 'Only administrators can change settings.', flags: 64 });
+  const chSettings = getSettings(interaction.guild.id);
+  const hasChPerms = interaction.memberPermissions.has(PermissionFlagsBits.Administrator) ||
+    (chSettings.managerRoleId && interaction.member.roles.cache.has(chSettings.managerRoleId));
+  if (!hasChPerms) {
+    return interaction.reply({ content: 'Only administrators or bot managers can change settings.', flags: 64 });
   }
 
   const channelId = interaction.values[0];
   const settings = getSettings(interaction.guild.id);
-  settings.watchChannelId = channelId;
-  guildSettings.set(interaction.guild.id, settings);
-  scheduleSave(interaction.guild.id);
-  reminderChannels.set(interaction.guild.id, channelId);
-
-  // Re-render watch_channel page
   const hasWick = !!(interaction.guild.members.cache.get(WICK_ID));
   const pages = getSetupPages(hasWick);
-  const page = buildSetupPage('watch_channel', interaction.guild, settings, pages);
-  return interaction.update({ ...page });
+
+  if (interaction.customId === 'vm_setup_channel') {
+    settings.watchChannelId = channelId;
+    reminderChannels.set(interaction.guild.id, channelId);
+    guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
+    const page = buildSetupPage('watch_channel', interaction.guild, settings, pages);
+    return interaction.update({ ...page });
+  }
+
+  if (interaction.customId === 'vm_setup_audit_channel') {
+    settings.auditChannelId = channelId;
+    guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
+    const page = buildSetupPage('audit_channel', interaction.guild, settings, pages);
+    return interaction.update({ ...page });
+  }
 }
 
 async function handleView(interaction) {
@@ -527,8 +574,11 @@ async function handleDashboardButton(interaction) {
 }
 
 async function handleConfigure(interaction) {
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
-    return interaction.reply({ content: 'Only administrators can change vote mute settings.', flags: 64 });
+  const cfgSettings = getSettings(interaction.guild.id);
+  const hasCfgPerms = interaction.memberPermissions.has(PermissionFlagsBits.Administrator) ||
+    (cfgSettings.managerRoleId && interaction.member.roles.cache.has(cfgSettings.managerRoleId));
+  if (!hasCfgPerms) {
+    return interaction.reply({ content: 'Only administrators or bot managers can change vote mute settings.', flags: 64 });
   }
 
   const settings = getSettings(interaction.guild.id);
@@ -567,6 +617,8 @@ async function handleConfigure(interaction) {
         { label: 'Allow Self-Mute', description: `Currently: ${settings.allowSelfMute ? 'ON' : 'OFF'}`, value: 'allow_self_mute' },
         { label: 'Min Messages for Active', description: `Currently: ${settings.minMessages}`, value: 'min_messages' },
         { label: 'Manager Role', description: `Currently: ${settings.managerRoleId ? 'Set' : 'None'}`, value: 'manager_role' },
+        { label: 'Boost Immunity', description: `Currently: ${settings.boostImmunity ? settings.boostImmunityDuration + ' min' : 'OFF'}`, value: 'boost_immunity' },
+        { label: 'Boost Immunity Duration', description: `Currently: ${settings.boostImmunityDuration} min`, value: 'boost_duration' },
       ),
   );
 
@@ -594,6 +646,12 @@ async function handleSelectMenu(interaction) {
 
   // Theme select
   if (interaction.customId === 'vm_theme_select') {
+    const themeSettings = getSettings(interaction.guild.id);
+    const hasThemePerms = interaction.memberPermissions.has(PermissionFlagsBits.Administrator) ||
+      (themeSettings.managerRoleId && interaction.member.roles.cache.has(themeSettings.managerRoleId));
+    if (!hasThemePerms) {
+      return interaction.reply({ content: 'Only administrators or bot managers can change the theme.', flags: 64 });
+    }
     const settings = getSettings(interaction.guild.id);
     settings.theme = interaction.values[0];
     guildSettings.set(interaction.guild.id, settings);
@@ -608,8 +666,11 @@ async function handleSelectMenu(interaction) {
     return interaction.reply({ embeds: [embed], flags: 64 });
   }
   if (interaction.customId === 'vm_immune_roles') {
-    if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
-      return interaction.reply({ content: 'Only administrators can change settings.', flags: 64 });
+    const irSettings = getSettings(interaction.guild.id);
+    const hasIrPerms = interaction.memberPermissions.has(PermissionFlagsBits.Administrator) ||
+      (irSettings.managerRoleId && interaction.member.roles.cache.has(irSettings.managerRoleId));
+    if (!hasIrPerms) {
+      return interaction.reply({ content: 'Only administrators or bot managers can change settings.', flags: 64 });
     }
 
     const settings = getSettings(interaction.guild.id);
@@ -638,8 +699,11 @@ async function handleSelectMenu(interaction) {
 
   if (interaction.customId !== 'vm_config_select') return;
 
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
-    return interaction.reply({ content: 'Only administrators can change settings.', flags: 64 });
+  const csSettings = getSettings(interaction.guild.id);
+  const hasCsPerms = interaction.memberPermissions.has(PermissionFlagsBits.Administrator) ||
+    (csSettings.managerRoleId && interaction.member.roles.cache.has(csSettings.managerRoleId));
+  if (!hasCsPerms) {
+    return interaction.reply({ content: 'Only administrators or bot managers can change settings.', flags: 64 });
   }
 
   const selected = interaction.values[0];
@@ -691,6 +755,19 @@ async function handleSelectMenu(interaction) {
     return interaction.reply({ content: 'Select the bot manager role:', components: [roleSelect], flags: 64 });
   }
 
+  if (selected === 'boost_immunity') {
+    const settings = getSettings(interaction.guild.id);
+    settings.boostImmunity = !settings.boostImmunity;
+    guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x00ff00)
+      .setTitle('Setting Updated')
+      .setDescription(`**Boost Immunity** is now **${settings.boostImmunity ? 'ON' : 'OFF'}**${settings.boostImmunity ? ` (${settings.boostImmunityDuration} min)` : ''}`);
+    return interaction.reply({ embeds: [embed], flags: 64 });
+  }
+
   if (selected === 'callouts') {
     const settings = getSettings(interaction.guild.id);
     settings.calloutsEnabled = !settings.calloutsEnabled;
@@ -729,6 +806,7 @@ async function handleSelectMenu(interaction) {
     max_active_votes: { title: 'Max Active Votes', placeholder: 'Enter number (1-10)', min: '1', max: '10' },
     initiator_cooldown: { title: 'Initiator Cooldown (seconds)', placeholder: 'Enter seconds (0=off, max 600)', min: '0', max: '600' },
     min_messages: { title: 'Min Messages for Active', placeholder: 'Enter number (1-20)', min: '1', max: '20' },
+    boost_duration: { title: 'Boost Immunity Duration (min)', placeholder: 'Enter minutes (1-1440)', min: '1', max: '1440' },
   };
 
   const info = labels[selected];
@@ -770,6 +848,7 @@ async function handleModal(interaction) {
     max_active_votes: { min: 1, max: 10 },
     initiator_cooldown: { min: 0, max: 600 },
     min_messages: { min: 1, max: 20 },
+    boost_duration: { min: 1, max: 1440 },
   };
 
   const { min, max } = limits[setting];
@@ -787,6 +866,7 @@ async function handleModal(interaction) {
     max_active_votes: 'Max Active Votes',
     initiator_cooldown: 'Initiator Cooldown',
     min_messages: 'Min Messages for Active',
+    boost_duration: 'Boost Immunity Duration',
   };
 
   let displayValue;
@@ -811,9 +891,13 @@ async function handleModal(interaction) {
   } else if (setting === 'min_messages') {
     settings.minMessages = rawValue;
     displayValue = `${rawValue}`;
+  } else if (setting === 'boost_duration') {
+    settings.boostImmunityDuration = rawValue;
+    displayValue = `${rawValue} min`;
   }
 
   guildSettings.set(interaction.guild.id, settings);
+  scheduleSave(interaction.guild.id);
 
   const embed = new EmbedBuilder()
     .setColor(0x00ff00)

@@ -1,6 +1,10 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const { getSettings, getActiveChatters, activeVotes, boosterImmunity, voteCooldowns, activeMutes, reminderChannels, initiatorCooldowns, recordMute, recordFailedVote } = require('../utils/state');
 const { getTheme, getSelfMuteReactions } = require('../utils/display');
+const { auditLog } = require('../utils/audit');
+
+let _client = null;
+function setClient(client) { _client = client; }
 
 function buildProgressBar(current, total, barLength = 16) {
   const filled = Math.round((current / total) * barLength);
@@ -51,6 +55,13 @@ async function executeMute(guild, targetId, channel, votes, settings) {
 
     reminderChannels.set(guild.id, channel.id);
     recordMute(guild.id, targetId, votes);
+
+    auditLog(_client, guild.id, {
+      action: 'MUTED',
+      target: targetId,
+      details: `${votes.size} votes \u2022 ${settings.muteDuration} min`,
+      color: 0xff4444,
+    });
 
     activeMutes.set(`${guild.id}-${targetId}`, {
       expiresAt: Date.now() + muteDuration,
@@ -123,14 +134,15 @@ async function handleVoteMute(interaction) {
   }
 
   const isAdmin = interaction.memberPermissions.has(PermissionFlagsBits.Administrator);
+  const isManager = settings.managerRoleId && interaction.member.roles.cache.has(settings.managerRoleId);
   const cooldownKey = `${guild.id}-${target.id}`;
   const cooldownExpires = voteCooldowns.get(cooldownKey);
-  if (!isAdmin && cooldownExpires && Date.now() < cooldownExpires) {
+  if (!isAdmin && !isManager && cooldownExpires && Date.now() < cooldownExpires) {
     const remaining = Math.ceil((cooldownExpires - Date.now()) / 60000);
     return interaction.reply({ content: `A vote mute for ${target.displayName} is on cooldown. (${remaining} min remaining)`, flags: 64 });
   }
 
-  if (!isAdmin && settings.initiatorCooldown > 0) {
+  if (!isAdmin && !isManager && settings.initiatorCooldown > 0) {
     const initKey = `${guild.id}-${interaction.user.id}`;
     const initExpires = initiatorCooldowns.get(initKey);
     if (initExpires && Date.now() < initExpires) {
@@ -185,6 +197,14 @@ async function handleVoteMute(interaction) {
     votesNeeded,
   });
 
+  auditLog(_client, guild.id, {
+    action: 'VOTE STARTED',
+    target: target.id,
+    executor: interaction.user.id,
+    details: `${votesNeeded} votes needed \u2022 ${settings.voteDuration}s`,
+    color: 0xffa500,
+  });
+
   if (settings.initiatorCooldown > 0) {
     initiatorCooldowns.set(`${guild.id}-${interaction.user.id}`, Date.now() + settings.initiatorCooldown * 1000);
   }
@@ -195,6 +215,13 @@ async function handleVoteMute(interaction) {
 
     activeVotes.delete(voteKey);
     recordFailedVote(guild.id);
+
+    auditLog(_client, guild.id, {
+      action: 'VOTE EXPIRED',
+      target: target.id,
+      details: `${votes.size}/${votesNeeded} votes`,
+      color: 0x808080,
+    });
 
     const expiredEmbed = EmbedBuilder.from(embed)
       .setColor(0x808080)
@@ -230,11 +257,20 @@ async function handleButton(interaction, client) {
   const theme = getTheme(settings.theme);
 
   if (interaction.customId === 'vm_cancel') {
-    if (interaction.user.id !== vote.startedBy && !interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
-      return interaction.reply({ content: 'Only the initiator or an admin can cancel this vote.', flags: 64 });
+    const isAdmin = interaction.memberPermissions.has(PermissionFlagsBits.Administrator);
+    const isManager = settings.managerRoleId && interaction.member.roles.cache.has(settings.managerRoleId);
+    if (interaction.user.id !== vote.startedBy && !isAdmin && !isManager) {
+      return interaction.reply({ content: 'Only the initiator, an admin, or a bot manager can cancel this vote.', flags: 64 });
     }
 
     activeVotes.delete(voteKey);
+
+    auditLog(_client, guild.id, {
+      action: 'VOTE CANCELLED',
+      target: vote.targetId,
+      executor: interaction.user.id,
+      color: 0x808080,
+    });
 
     const cancelEmbed = new EmbedBuilder()
       .setColor(0x808080)
@@ -309,4 +345,4 @@ async function handleButton(interaction, client) {
   }
 }
 
-module.exports = { handleVoteMute, handleButton, executeMute };
+module.exports = { handleVoteMute, handleButton, executeMute, setClient };

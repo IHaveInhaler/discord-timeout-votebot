@@ -1,6 +1,7 @@
 const { EmbedBuilder, PermissionFlagsBits, AuditLogEvent } = require('discord.js');
 const { getSettings, getStats, boosterImmunity, activeMutes, scheduleSave } = require('../utils/state');
 const { getTheme } = require('../utils/display');
+const { auditLog } = require('../utils/audit');
 
 function setupEvents(client) {
   // Watch for boosts and unauthorized unmutes
@@ -10,18 +11,29 @@ function setupEvents(client) {
     const isBoosting = newMember.premiumSince !== null;
 
     if (!wasBoosting && isBoosting) {
+      const settings = getSettings(newMember.guild.id);
+      if (!settings.boostImmunity) return;
+
+      const duration = settings.boostImmunityDuration * 60 * 1000;
       const key = `${newMember.guild.id}-${newMember.id}`;
-      boosterImmunity.set(key, Date.now() + 60 * 60 * 1000);
+      boosterImmunity.set(key, Date.now() + duration);
 
       newMember.send({
         embeds: [
           new EmbedBuilder()
             .setColor(0xff73fa)
             .setTitle('Booster Immunity Granted!')
-            .setDescription(`Thanks for boosting **${newMember.guild.name}**! You now have **1 hour of immunity** from vote mutes.`)
+            .setDescription(`Thanks for boosting **${newMember.guild.name}**! You now have **${settings.boostImmunityDuration} minutes of immunity** from vote mutes.`)
             .setTimestamp(),
         ],
       }).catch(() => {});
+
+      auditLog(client, newMember.guild.id, {
+        action: 'BOOST IMMUNITY',
+        target: newMember.id,
+        details: '1 hour immunity granted',
+        color: 0xff73fa,
+      });
     }
 
     // Check for unauthorized unmute
@@ -66,6 +78,14 @@ function setupEvents(client) {
 
         const penaltyDuration = settings.muteDuration * 60 * 1000;
         await executor.timeout(penaltyDuration, 'Unauthorized removal of vote mute');
+
+        auditLog(client, newMember.guild.id, {
+          action: 'UNAUTHORIZED UNMUTE',
+          target: newMember.id,
+          executor: executor.id,
+          details: `${executor.displayName} tried to unmute ${newMember.displayName} \u2022 Both penalized`,
+          color: 0xff0000,
+        });
 
         const channel = await newMember.guild.channels.fetch(trackedMute.channelId).catch(() => null);
         if (channel) {
