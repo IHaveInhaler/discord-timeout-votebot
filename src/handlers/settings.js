@@ -522,7 +522,7 @@ async function handleSetupButton(interaction) {
     else if (id === 'vm_toggle_selfmute_off') settings.allowSelfMute = false;
 
     guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
+    scheduleSave(interaction.guild.id, true);
 
     const labels = {
       vm_boost_on: 'Boost Immunity', vm_boost_off: 'Boost Immunity',
@@ -563,7 +563,7 @@ async function handleSetupChannel(interaction) {
     settings.watchChannelId = channelId;
     reminderChannels.set(interaction.guild.id, channelId);
     guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
+    scheduleSave(interaction.guild.id, true);
     const page = buildSetupPage('watch_channel', interaction.guild, settings, pages);
     return interaction.update({ ...page });
   }
@@ -571,7 +571,7 @@ async function handleSetupChannel(interaction) {
   if (interaction.customId === 'vm_setup_audit_channel') {
     settings.auditChannelId = channelId;
     guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
+    scheduleSave(interaction.guild.id, true);
     const page = buildSetupPage('audit_channel', interaction.guild, settings, pages);
     return interaction.update({ ...page });
   }
@@ -660,7 +660,7 @@ async function handleSelectMenu(interaction) {
     const settings = getSettings(interaction.guild.id);
     settings.managerRoleId = interaction.values[0] || null;
     guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
+    scheduleSave(interaction.guild.id, true);
 
     const display = settings.managerRoleId ? `<@&${settings.managerRoleId}>` : 'None';
     const embed = new EmbedBuilder()
@@ -681,7 +681,7 @@ async function handleSelectMenu(interaction) {
     const settings = getSettings(interaction.guild.id);
     settings.theme = interaction.values[0];
     guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
+    scheduleSave(interaction.guild.id, true);
 
     const { getTheme } = require('../utils/display');
     const theme = getTheme(settings.theme);
@@ -702,7 +702,7 @@ async function handleSelectMenu(interaction) {
     const settings = getSettings(interaction.guild.id);
     settings.immuneRoles = interaction.values;
     guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
+    scheduleSave(interaction.guild.id, true);
 
     const rolesDisplay = settings.immuneRoles.length
       ? settings.immuneRoles.map(id => `<@&${id}>`).join(', ')

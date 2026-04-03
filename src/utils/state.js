@@ -34,8 +34,12 @@ const initiatorCooldowns = new Collection();
 
 const _pendingSaves = new Set();
 
-function scheduleSave(guildId) {
-  _pendingSaves.add(guildId);
+function scheduleSave(guildId, immediate = false) {
+  if (immediate) {
+    saveGuild(guildId);
+  } else {
+    _pendingSaves.add(guildId);
+  }
 }
 
 function saveGuild(guildId) {
