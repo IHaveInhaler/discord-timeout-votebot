@@ -22,7 +22,7 @@ const DEFAULT_SETTINGS = {
   allowSelfMute: true,
   maxActiveVotes: 1,
   initiatorCooldown: 0,
-  botChannelId: null,
+  watchChannelId: null,
   minMessages: 1,              // min messages to count as active chatter
 };
 

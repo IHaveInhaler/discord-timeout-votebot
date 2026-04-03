@@ -138,7 +138,7 @@ To see logs: `docker compose logs -f votemute`
 
 In your server, type `/vm setup` to:
 - Verify all permissions are correct
-- Pick a bot channel for announcements/reminders/callouts
+- Pick a watch channel for announcements/reminders/callouts
 - Detect if you have Wick, Dyno, MEE6, or Carl-bot and get whitelisting instructions
 
 ## Using Other Moderation Bots?

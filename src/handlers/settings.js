@@ -236,115 +236,218 @@ async function handleVmSettings(interaction) {
   }
 }
 
+function buildSetupPage(page, guild, settings) {
+  const me = guild.members.me;
+
+  if (page === 0) {
+    // Page 1: Welcome + Permission Check
+    const requiredPerms = [
+      { flag: PermissionFlagsBits.ModerateMembers, name: 'Timeout Members' },
+      { flag: PermissionFlagsBits.SendMessages, name: 'Send Messages' },
+      { flag: PermissionFlagsBits.EmbedLinks, name: 'Embed Links' },
+      { flag: PermissionFlagsBits.ViewAuditLog, name: 'View Audit Log' },
+      { flag: PermissionFlagsBits.ReadMessageHistory, name: 'Read Message History' },
+    ];
+    const permChecks = requiredPerms.map(p => `${me.permissions.has(p.flag) ? '\u2705' : '\u274C'} ${p.name}`);
+    const allPermsOk = requiredPerms.every(p => me.permissions.has(p.flag));
+    const botRole = me.roles.highest;
+    const roleStatus = botRole.position > 1
+      ? `\u2705 **${botRole.name}** at position ${botRole.position}/${guild.roles.cache.size - 1}`
+      : '\u26A0\uFE0F Bot role is very low \u2014 move it higher to mute more users';
+
+    const embed = new EmbedBuilder()
+      .setColor(allPermsOk ? 0x5865f2 : 0xff4444)
+      .setTitle('\uD83D\uDD27 Setup Wizard \u2014 Step 1/5: Permissions')
+      .setDescription(allPermsOk
+        ? '\u2705 **All permissions look good!** You\'re ready to proceed.'
+        : '\u274C **Some permissions are missing.** Fix these before continuing or the bot won\'t work properly.')
+      .addFields(
+        { name: '\uD83D\uDD10 Required Permissions', value: permChecks.join('\n') },
+        { name: '\uD83D\uDCCB Role Hierarchy', value: roleStatus },
+        { name: '\uD83E\uDD16 Bot ID', value: `\`${me.id}\`\nCopy this to whitelist in other moderation bots.` },
+      )
+      .setFooter({ text: 'Step 1 of 5 \u2022 Permissions are essential \u2014 fix any \u274C before continuing' });
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_setup_next_1').setLabel('Next \u2192').setStyle(ButtonStyle.Primary),
+    );
+    return { embeds: [embed], components: [row] };
+  }
+
+  if (page === 1) {
+    // Page 2: Watch Channel (ESSENTIAL)
+    const channelDisplay = settings.watchChannelId ? `<#${settings.watchChannelId}>` : '\u274C **Not set yet**';
+
+    const embed = new EmbedBuilder()
+      .setColor(settings.watchChannelId ? 0x00ff88 : 0xff4444)
+      .setTitle('\uD83D\uDD27 Setup Wizard \u2014 Step 2/5: Watch Channel')
+      .setDescription('**This is essential.** Pick the channel where the bot will post mute announcements, reminders, callouts, and other messages.')
+      .addFields(
+        { name: '\uD83D\uDCFA Current Watch Channel', value: channelDisplay },
+        { name: '\u2139\uFE0F What goes here?', value: 'Mute results, unauthorized unmute alerts, periodic tips, random callouts, and other bot messages.' },
+      )
+      .setFooter({ text: 'Step 2 of 5 \u2022 This setting is required' });
+
+    const channelRow = new ActionRowBuilder().addComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId('vm_setup_channel')
+        .setPlaceholder('Select watch channel...')
+        .setChannelTypes(ChannelType.GuildText),
+    );
+    const navRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_setup_back_0').setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('vm_setup_next_2').setLabel('Next \u2192').setStyle(ButtonStyle.Primary),
+    );
+    return { embeds: [embed], components: [channelRow, navRow] };
+  }
+
+  if (page === 2) {
+    // Page 3: Core Vote Settings (ESSENTIAL)
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle('\uD83D\uDD27 Setup Wizard \u2014 Step 3/5: Vote Settings')
+      .setDescription('These control how voting works. The defaults are sensible but you can tweak them.')
+      .addFields(
+        { name: '\uD83D\uDCCA Vote Threshold', value: `**${Math.round(settings.threshold * 100)}%** of active chatters needed to pass\n*Default: 60%*`, inline: true },
+        { name: '\u23F1\uFE0F Vote Duration', value: `**${settings.voteDuration}s** to cast votes\n*Default: 60s*`, inline: true },
+        { name: '\uD83D\uDD07 Mute Duration', value: `**${settings.muteDuration} min** timeout\n*Default: 5 min*`, inline: true },
+        { name: '\uD83D\uDCAC Min Messages', value: `**${settings.minMessages}** msg(s) to count as active\n*Default: 1*`, inline: true },
+        { name: '\uD83D\uDD52 Activity Window', value: `**${settings.activityWindow} min** lookback\n*Default: 5 min*`, inline: true },
+        { name: '\u2139\uFE0F', value: 'Use `/vm configure` to change these values anytime. Hit Next to continue with current values, or configure them later.' },
+      )
+      .setFooter({ text: 'Step 3 of 5 \u2022 These are important but defaults work fine' });
+
+    const navRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_setup_back_1').setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('vm_setup_configure').setLabel('Change These Now').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('vm_setup_next_3').setLabel('Keep Defaults & Next \u2192').setStyle(ButtonStyle.Success),
+    );
+    return { embeds: [embed], components: [navRow] };
+  }
+
+  if (page === 3) {
+    // Page 4: Fun Extras (optional)
+    const embed = new EmbedBuilder()
+      .setColor(0xffa500)
+      .setTitle('\uD83D\uDD27 Setup Wizard \u2014 Step 4/5: Fun Stuff')
+      .setDescription('These are optional but make the bot way more entertaining.')
+      .addFields(
+        { name: `\uD83D\uDCE2 Random Callouts ${settings.calloutsEnabled ? '\u2705' : '\u274C'}`, value: 'Bot randomly roasts users based on their mute stats every ~45 min.', inline: true },
+        { name: `\uD83D\uDCA1 Periodic Tips ${settings.remindersEnabled ? '\u2705' : '\u274C'}`, value: 'Sends funny vote mute tips every 2 hours.', inline: true },
+        { name: `\uD83C\uDFAD Vote Style: ${settings.voteStyle === 'yay_nay' ? 'Yay/Nay' : 'Default'}`, value: '"Vote to Mute" vs "Yay! Mute em / Nay!"', inline: true },
+        { name: `\uD83E\uDD21 Allow Self-Mute ${settings.allowSelfMute ? '\u2705' : '\u274C'}`, value: 'Let users vote mute themselves (bot roasts them for it).', inline: true },
+      )
+      .setFooter({ text: 'Step 4 of 5 \u2022 Optional \u2014 toggle these anytime with /vm configure' });
+
+    const toggleRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_setup_toggle_callouts').setLabel(`Callouts: ${settings.calloutsEnabled ? 'ON' : 'OFF'}`).setStyle(settings.calloutsEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('vm_setup_toggle_reminders').setLabel(`Tips: ${settings.remindersEnabled ? 'ON' : 'OFF'}`).setStyle(settings.remindersEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('vm_setup_toggle_votestyle').setLabel(`Style: ${settings.voteStyle === 'yay_nay' ? 'Yay/Nay' : 'Default'}`).setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('vm_setup_toggle_selfmute').setLabel(`Self-Mute: ${settings.allowSelfMute ? 'ON' : 'OFF'}`).setStyle(settings.allowSelfMute ? ButtonStyle.Success : ButtonStyle.Secondary),
+    );
+    const navRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_setup_back_2').setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('vm_setup_next_4').setLabel('Next \u2192').setStyle(ButtonStyle.Primary),
+    );
+    return { embeds: [embed], components: [toggleRow, navRow] };
+  }
+
+  if (page === 4) {
+    // Page 5: Summary + Done
+    const channelDisplay = settings.watchChannelId ? `<#${settings.watchChannelId}>` : '\u274C Not set';
+
+    const embed = new EmbedBuilder()
+      .setColor(0x00ff00)
+      .setTitle('\u2705 Setup Complete!')
+      .setDescription('You\'re all set. Here\'s a summary of your configuration:')
+      .addFields(
+        { name: '\uD83D\uDCFA Watch Channel', value: channelDisplay, inline: true },
+        { name: '\uD83D\uDCCA Threshold', value: `${Math.round(settings.threshold * 100)}%`, inline: true },
+        { name: '\uD83D\uDD07 Mute Duration', value: `${settings.muteDuration} min`, inline: true },
+        { name: '\u23F1\uFE0F Vote Duration', value: `${settings.voteDuration}s`, inline: true },
+        { name: '\uD83D\uDD52 Activity Window', value: `${settings.activityWindow} min`, inline: true },
+        { name: '\uD83D\uDCAC Min Messages', value: `${settings.minMessages}`, inline: true },
+        { name: '\uD83C\uDFAD Vote Style', value: settings.voteStyle === 'yay_nay' ? 'Yay/Nay' : 'Default', inline: true },
+        { name: '\uD83D\uDCE2 Callouts', value: settings.calloutsEnabled ? 'ON' : 'OFF', inline: true },
+        { name: '\uD83D\uDCA1 Tips', value: settings.remindersEnabled ? 'ON' : 'OFF', inline: true },
+        { name: '\u2139\uFE0F What now?', value: [
+          '**`/votemute @user`** \u2014 Start a vote',
+          '**`/vm view`** \u2014 See the dashboard',
+          '**`/vm configure`** \u2014 Change settings anytime',
+        ].join('\n') },
+      )
+      .setFooter({ text: 'Setup complete \u2022 Have fun muting people' });
+
+    const navRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_setup_back_3').setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('vm_setup_done').setLabel('\u2705 Done!').setStyle(ButtonStyle.Success),
+    );
+    return { embeds: [embed], components: [navRow] };
+  }
+}
+
 async function handleSetup(interaction) {
   if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
     return interaction.reply({ content: 'Only administrators can run setup.', flags: 64 });
   }
 
-  const guild = interaction.guild;
-  const me = guild.members.me;
-  const settings = getSettings(guild.id);
-
-  // Permission checks
-  const requiredPerms = [
-    { flag: PermissionFlagsBits.ModerateMembers, name: 'Timeout Members' },
-    { flag: PermissionFlagsBits.SendMessages, name: 'Send Messages' },
-    { flag: PermissionFlagsBits.EmbedLinks, name: 'Embed Links' },
-    { flag: PermissionFlagsBits.ViewAuditLog, name: 'View Audit Log' },
-    { flag: PermissionFlagsBits.ReadMessageHistory, name: 'Read Message History' },
-  ];
-  const permChecks = requiredPerms.map(p => `${me.permissions.has(p.flag) ? '\u2705' : '\u274C'} ${p.name}`);
-  const allPermsOk = requiredPerms.every(p => me.permissions.has(p.flag));
-
-  // Role hierarchy
-  const botRole = me.roles.highest;
-  const roleStatus = botRole.position > 1
-    ? `\u2705 **${botRole.name}** at position ${botRole.position}/${guild.roles.cache.size - 1}`
-    : '\u26A0\uFE0F Bot role is very low — move it higher';
-
-  // Detect moderation bots
-  const knownBots = [
-    { name: 'Wick', ids: ['536991182035746816'], guide: 'wickbot.com/dashboard > Whitelist > Whitelisted Bots' },
-    { name: 'Dyno', ids: ['155149108183695360'], guide: 'dyno.gg/manage > Automod > Whitelist' },
-    { name: 'MEE6', ids: ['159985870458322944'], guide: 'No action needed usually' },
-    { name: 'Carl-bot', ids: ['235148962103951360'], guide: 'carl.gg/dashboard > Automod > Whitelist' },
-  ];
-  const detectedBots = [];
-  for (const bot of knownBots) {
-    for (const id of bot.ids) {
-      if (await guild.members.fetch(id).catch(() => null)) { detectedBots.push(bot); break; }
-    }
-  }
-
-  // Current settings summary
-  const channelDisplay = settings.botChannelId ? `<#${settings.botChannelId}>` : 'Not set (uses any channel)';
-
-  const embed = new EmbedBuilder()
-    .setColor(allPermsOk ? 0x5865f2 : 0xff4444)
-    .setTitle('\uD83D\uDD27 Vote Mute Setup Wizard')
-    .setDescription('Welcome! Use the buttons below to configure your bot step by step.')
-    .addFields(
-      { name: '\uD83D\uDD10 Permissions', value: permChecks.join('\n') },
-      { name: '\uD83D\uDCCB Role Hierarchy', value: roleStatus },
-      { name: '\uD83E\uDD16 Bot ID (for whitelisting)', value: `\`${me.id}\`` },
-      { name: '\u2699\uFE0F Current Settings', value: [
-        `**Threshold:** ${Math.round(settings.threshold * 100)}%`,
-        `**Mute Duration:** ${settings.muteDuration} min`,
-        `**Vote Duration:** ${settings.voteDuration}s`,
-        `**Max Active Votes:** ${settings.maxActiveVotes}`,
-        `**Initiator Cooldown:** ${settings.initiatorCooldown ? settings.initiatorCooldown + 's' : 'OFF'}`,
-        `**Vote Style:** ${settings.voteStyle === 'yay_nay' ? 'Yay/Nay' : 'Default'}`,
-        `**Bot Channel:** ${channelDisplay}`,
-        `**Reminders:** ${settings.remindersEnabled ? 'ON' : 'OFF'}`,
-        `**Callouts:** ${settings.calloutsEnabled ? 'ON' : 'OFF'}`,
-      ].join('\n') },
-    );
-
-  if (detectedBots.length > 0) {
-    embed.addFields({
-      name: '\u26A0\uFE0F Moderation Bots Detected',
-      value: detectedBots.map(b => `**${b.name}** — ${b.guide}`).join('\n'),
-    });
-  } else {
-    embed.addFields({ name: '\u2705 No Mod Bot Conflicts', value: 'No known moderation bots detected.' });
-  }
-
-  embed.setFooter({ text: 'Use the buttons below to configure settings or select a bot channel' });
-
-  const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('vm_setup_defaults').setLabel('Use Defaults').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('vm_setup_configure').setLabel('Open Configure').setStyle(ButtonStyle.Primary),
-  );
-
-  const row2 = new ActionRowBuilder().addComponents(
-    new ChannelSelectMenuBuilder()
-      .setCustomId('vm_setup_channel')
-      .setPlaceholder('Select bot channel (announcements, reminders, callouts)')
-      .setChannelTypes(ChannelType.GuildText),
-  );
-
-  return interaction.reply({ embeds: [embed], components: [row1, row2], flags: 64 });
+  const settings = getSettings(interaction.guild.id);
+  const page = buildSetupPage(0, interaction.guild, settings);
+  return interaction.reply({ ...page, flags: 64 });
 }
 
 async function handleSetupButton(interaction) {
-  if (interaction.customId === 'vm_setup_defaults') {
-    const { DEFAULT_SETTINGS } = require('../utils/state');
-    const settings = { ...DEFAULT_SETTINGS };
-    guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
+  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
+    return interaction.reply({ content: 'Only administrators can use setup.', flags: 64 });
+  }
 
+  const id = interaction.customId;
+  const settings = getSettings(interaction.guild.id);
+
+  // Navigation: next/back
+  const nextMatch = id.match(/^vm_setup_next_(\d)$/);
+  if (nextMatch) {
+    const page = buildSetupPage(parseInt(nextMatch[1]), interaction.guild, settings);
+    return interaction.update({ ...page });
+  }
+
+  const backMatch = id.match(/^vm_setup_back_(\d)$/);
+  if (backMatch) {
+    const page = buildSetupPage(parseInt(backMatch[1]), interaction.guild, settings);
+    return interaction.update({ ...page });
+  }
+
+  // Toggles on page 4
+  if (id === 'vm_setup_toggle_callouts') {
+    settings.calloutsEnabled = !settings.calloutsEnabled;
+    if (settings.calloutsEnabled && settings.watchChannelId) {
+      reminderChannels.set(interaction.guild.id, settings.watchChannelId);
+    }
+  } else if (id === 'vm_setup_toggle_reminders') {
+    settings.remindersEnabled = !settings.remindersEnabled;
+    if (settings.remindersEnabled && settings.watchChannelId) {
+      reminderChannels.set(interaction.guild.id, settings.watchChannelId);
+    }
+  } else if (id === 'vm_setup_toggle_votestyle') {
+    settings.voteStyle = settings.voteStyle === 'yay_nay' ? 'default' : 'yay_nay';
+  } else if (id === 'vm_setup_toggle_selfmute') {
+    settings.allowSelfMute = !settings.allowSelfMute;
+  } else if (id === 'vm_setup_configure') {
+    return handleConfigure(interaction);
+  } else if (id === 'vm_setup_done') {
     const embed = new EmbedBuilder()
       .setColor(0x00ff00)
-      .setTitle('\u2705 Defaults Applied')
-      .setDescription('All settings have been reset to defaults. Use `/vm configure` to tweak individual settings anytime.');
-
-    return interaction.reply({ embeds: [embed], flags: 64 });
+      .setTitle('\uD83C\uDF89 All done!')
+      .setDescription('Your bot is ready. Go mute someone with `/votemute @user`!');
+    return interaction.update({ embeds: [embed], components: [] });
   }
 
-  if (interaction.customId === 'vm_setup_configure') {
-    // Just redirect them to configure
-    return handleConfigure(interaction);
-  }
+  guildSettings.set(interaction.guild.id, settings);
+  scheduleSave(interaction.guild.id);
+
+  // Re-render current page (page 4 for toggles)
+  const page = buildSetupPage(3, interaction.guild, settings);
+  return interaction.update({ ...page });
 }
 
 async function handleSetupChannel(interaction) {
@@ -356,17 +459,14 @@ async function handleSetupChannel(interaction) {
 
   const channelId = interaction.values[0];
   const settings = getSettings(interaction.guild.id);
-  settings.botChannelId = channelId;
+  settings.watchChannelId = channelId;
   guildSettings.set(interaction.guild.id, settings);
   scheduleSave(interaction.guild.id);
   reminderChannels.set(interaction.guild.id, channelId);
 
-  const embed = new EmbedBuilder()
-    .setColor(0x00ff00)
-    .setTitle('\u2705 Bot Channel Set')
-    .setDescription(`All bot announcements, reminders, and callouts will now go to <#${channelId}>.`);
-
-  return interaction.reply({ embeds: [embed], flags: 64 });
+  // Re-render page 2 with the channel set
+  const page = buildSetupPage(1, interaction.guild, settings);
+  return interaction.update({ ...page });
 }
 
 async function handleView(interaction) {
