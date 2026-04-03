@@ -236,11 +236,23 @@ async function handleVmSettings(interaction) {
   }
 }
 
-function buildSetupPage(page, guild, settings) {
-  const me = guild.members.me;
+const WICK_ID = '536991182035746816';
 
-  if (page === 0) {
-    // Page 1: Welcome + Permission Check
+function getSetupPages(hasWick) {
+  const pages = ['permissions', 'watch_channel'];
+  if (hasWick) pages.push('wick');
+  pages.push('vote_settings', 'fun_stuff', 'summary');
+  return pages;
+}
+
+function buildSetupPage(pageName, guild, settings, pages) {
+  const me = guild.members.me;
+  const pageNum = pages.indexOf(pageName) + 1;
+  const totalPages = pages.length;
+  const prevPage = pages[pages.indexOf(pageName) - 1];
+  const nextPage = pages[pages.indexOf(pageName) + 1];
+
+  if (pageName === 'permissions') {
     const requiredPerms = [
       { flag: PermissionFlagsBits.ModerateMembers, name: 'Timeout Members' },
       { flag: PermissionFlagsBits.SendMessages, name: 'Send Messages' },
@@ -257,7 +269,7 @@ function buildSetupPage(page, guild, settings) {
 
     const embed = new EmbedBuilder()
       .setColor(allPermsOk ? 0x5865f2 : 0xff4444)
-      .setTitle('\uD83D\uDD27 Setup Wizard \u2014 Step 1/5: Permissions')
+      .setTitle(`\uD83D\uDD27 Setup Wizard \u2014 Step ${pageNum}/${totalPages}: Permissions`)
       .setDescription(allPermsOk
         ? '\u2705 **All permissions look good!** You\'re ready to proceed.'
         : '\u274C **Some permissions are missing.** Fix these before continuing or the bot won\'t work properly.')
@@ -266,27 +278,26 @@ function buildSetupPage(page, guild, settings) {
         { name: '\uD83D\uDCCB Role Hierarchy', value: roleStatus },
         { name: '\uD83E\uDD16 Bot ID', value: `\`${me.id}\`\nCopy this to whitelist in other moderation bots.` },
       )
-      .setFooter({ text: 'Step 1 of 5 \u2022 Permissions are essential \u2014 fix any \u274C before continuing' });
+      .setFooter({ text: `Step ${pageNum} of ${totalPages} \u2022 Permissions are essential \u2014 fix any \u274C before continuing` });
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('vm_setup_next_1').setLabel('Next \u2192').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${nextPage}`).setLabel('Next \u2192').setStyle(ButtonStyle.Primary),
     );
     return { embeds: [embed], components: [row] };
   }
 
-  if (page === 1) {
-    // Page 2: Watch Channel (ESSENTIAL)
+  if (pageName === 'watch_channel') {
     const channelDisplay = settings.watchChannelId ? `<#${settings.watchChannelId}>` : '\u274C **Not set yet**';
 
     const embed = new EmbedBuilder()
       .setColor(settings.watchChannelId ? 0x00ff88 : 0xff4444)
-      .setTitle('\uD83D\uDD27 Setup Wizard \u2014 Step 2/5: Watch Channel')
+      .setTitle(`\uD83D\uDD27 Setup Wizard \u2014 Step ${pageNum}/${totalPages}: Watch Channel`)
       .setDescription('**This is essential.** Pick the channel where the bot will post mute announcements, reminders, callouts, and other messages.')
       .addFields(
         { name: '\uD83D\uDCFA Current Watch Channel', value: channelDisplay },
         { name: '\u2139\uFE0F What goes here?', value: 'Mute results, unauthorized unmute alerts, periodic tips, random callouts, and other bot messages.' },
       )
-      .setFooter({ text: 'Step 2 of 5 \u2022 This setting is required' });
+      .setFooter({ text: `Step ${pageNum} of ${totalPages} \u2022 This setting is required` });
 
     const channelRow = new ActionRowBuilder().addComponents(
       new ChannelSelectMenuBuilder()
@@ -295,17 +306,41 @@ function buildSetupPage(page, guild, settings) {
         .setChannelTypes(ChannelType.GuildText),
     );
     const navRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('vm_setup_back_0').setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('vm_setup_next_2').setLabel('Next \u2192').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${prevPage}`).setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${nextPage}`).setLabel('Next \u2192').setStyle(ButtonStyle.Primary),
     );
     return { embeds: [embed], components: [channelRow, navRow] };
   }
 
-  if (page === 2) {
-    // Page 3: Core Vote Settings (ESSENTIAL)
+  if (pageName === 'wick') {
+    const embed = new EmbedBuilder()
+      .setColor(0xff6600)
+      .setTitle(`\u26A0\uFE0F Setup Wizard \u2014 Step ${pageNum}/${totalPages}: Wick Detected!`)
+      .setDescription('**Wick Bot** is in this server. If you don\'t whitelist this bot, Wick may flag its timeout actions as a nuke attempt and punish the bot or strip its permissions.')
+      .addFields(
+        { name: '\uD83D\uDEE1\uFE0F What to do', value: [
+          '1. Go to **wickbot.com/dashboard**',
+          '2. Select this server',
+          '3. Go to **Whitelist** \u2192 **Whitelisted Bots**',
+          `4. Add this bot's ID: \`${me.id}\``,
+          '5. Save',
+        ].join('\n') },
+        { name: '\u2753 What happens if I don\'t?', value: 'Wick may detect the bot timing out users and treat it as a raid/nuke. It could strip the bot\'s roles, ban it, or lock the server. **Don\'t skip this.**' },
+        { name: '\uD83D\uDD17 Direct Link', value: 'wickbot.com/dashboard' },
+      )
+      .setFooter({ text: `Step ${pageNum} of ${totalPages} \u2022 This is important if you use Wick` });
+
+    const navRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${prevPage}`).setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${nextPage}`).setLabel('Done, Next \u2192').setStyle(ButtonStyle.Success),
+    );
+    return { embeds: [embed], components: [navRow] };
+  }
+
+  if (pageName === 'vote_settings') {
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
-      .setTitle('\uD83D\uDD27 Setup Wizard \u2014 Step 3/5: Vote Settings')
+      .setTitle(`\uD83D\uDD27 Setup Wizard \u2014 Step ${pageNum}/${totalPages}: Vote Settings`)
       .setDescription('These control how voting works. The defaults are sensible but you can tweak them.')
       .addFields(
         { name: '\uD83D\uDCCA Vote Threshold', value: `**${Math.round(settings.threshold * 100)}%** of active chatters needed to pass\n*Default: 60%*`, inline: true },
@@ -313,23 +348,22 @@ function buildSetupPage(page, guild, settings) {
         { name: '\uD83D\uDD07 Mute Duration', value: `**${settings.muteDuration} min** timeout\n*Default: 5 min*`, inline: true },
         { name: '\uD83D\uDCAC Min Messages', value: `**${settings.minMessages}** msg(s) to count as active\n*Default: 1*`, inline: true },
         { name: '\uD83D\uDD52 Activity Window', value: `**${settings.activityWindow} min** lookback\n*Default: 5 min*`, inline: true },
-        { name: '\u2139\uFE0F', value: 'Use `/vm configure` to change these values anytime. Hit Next to continue with current values, or configure them later.' },
+        { name: '\u2139\uFE0F', value: 'Use `/vm configure` to change these values anytime.' },
       )
-      .setFooter({ text: 'Step 3 of 5 \u2022 These are important but defaults work fine' });
+      .setFooter({ text: `Step ${pageNum} of ${totalPages} \u2022 Defaults work fine \u2014 tweak later with /vm configure` });
 
     const navRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('vm_setup_back_1').setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${prevPage}`).setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('vm_setup_configure').setLabel('Change These Now').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('vm_setup_next_3').setLabel('Keep Defaults & Next \u2192').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${nextPage}`).setLabel('Keep Defaults & Next \u2192').setStyle(ButtonStyle.Success),
     );
     return { embeds: [embed], components: [navRow] };
   }
 
-  if (page === 3) {
-    // Page 4: Fun Extras (optional)
+  if (pageName === 'fun_stuff') {
     const embed = new EmbedBuilder()
       .setColor(0xffa500)
-      .setTitle('\uD83D\uDD27 Setup Wizard \u2014 Step 4/5: Fun Stuff')
+      .setTitle(`\uD83D\uDD27 Setup Wizard \u2014 Step ${pageNum}/${totalPages}: Fun Stuff`)
       .setDescription('These are optional but make the bot way more entertaining.')
       .addFields(
         { name: `\uD83D\uDCE2 Random Callouts ${settings.calloutsEnabled ? '\u2705' : '\u274C'}`, value: 'Bot randomly roasts users based on their mute stats every ~45 min.', inline: true },
@@ -337,7 +371,7 @@ function buildSetupPage(page, guild, settings) {
         { name: `\uD83C\uDFAD Vote Style: ${settings.voteStyle === 'yay_nay' ? 'Yay/Nay' : 'Default'}`, value: '"Vote to Mute" vs "Yay! Mute em / Nay!"', inline: true },
         { name: `\uD83E\uDD21 Allow Self-Mute ${settings.allowSelfMute ? '\u2705' : '\u274C'}`, value: 'Let users vote mute themselves (bot roasts them for it).', inline: true },
       )
-      .setFooter({ text: 'Step 4 of 5 \u2022 Optional \u2014 toggle these anytime with /vm configure' });
+      .setFooter({ text: `Step ${pageNum} of ${totalPages} \u2022 Optional \u2014 toggle these anytime with /vm configure` });
 
     const toggleRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('vm_setup_toggle_callouts').setLabel(`Callouts: ${settings.calloutsEnabled ? 'ON' : 'OFF'}`).setStyle(settings.calloutsEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
@@ -346,14 +380,13 @@ function buildSetupPage(page, guild, settings) {
       new ButtonBuilder().setCustomId('vm_setup_toggle_selfmute').setLabel(`Self-Mute: ${settings.allowSelfMute ? 'ON' : 'OFF'}`).setStyle(settings.allowSelfMute ? ButtonStyle.Success : ButtonStyle.Secondary),
     );
     const navRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('vm_setup_back_2').setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('vm_setup_next_4').setLabel('Next \u2192').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${prevPage}`).setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${nextPage}`).setLabel('Next \u2192').setStyle(ButtonStyle.Primary),
     );
     return { embeds: [embed], components: [toggleRow, navRow] };
   }
 
-  if (page === 4) {
-    // Page 5: Summary + Done
+  if (pageName === 'summary') {
     const channelDisplay = settings.watchChannelId ? `<#${settings.watchChannelId}>` : '\u274C Not set';
 
     const embed = new EmbedBuilder()
@@ -379,7 +412,7 @@ function buildSetupPage(page, guild, settings) {
       .setFooter({ text: 'Setup complete \u2022 Have fun muting people' });
 
     const navRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('vm_setup_back_3').setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`vm_setup_goto_${prevPage}`).setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('vm_setup_done').setLabel('\u2705 Done!').setStyle(ButtonStyle.Success),
     );
     return { embeds: [embed], components: [navRow] };
@@ -391,8 +424,10 @@ async function handleSetup(interaction) {
     return interaction.reply({ content: 'Only administrators can run setup.', flags: 64 });
   }
 
+  const hasWick = !!(await interaction.guild.members.fetch(WICK_ID).catch(() => null));
+  const pages = getSetupPages(hasWick);
   const settings = getSettings(interaction.guild.id);
-  const page = buildSetupPage(0, interaction.guild, settings);
+  const page = buildSetupPage(pages[0], interaction.guild, settings, pages);
   return interaction.reply({ ...page, flags: 64 });
 }
 
@@ -403,21 +438,17 @@ async function handleSetupButton(interaction) {
 
   const id = interaction.customId;
   const settings = getSettings(interaction.guild.id);
+  const hasWick = !!(interaction.guild.members.cache.get(WICK_ID));
+  const pages = getSetupPages(hasWick);
 
-  // Navigation: next/back
-  const nextMatch = id.match(/^vm_setup_next_(\d)$/);
-  if (nextMatch) {
-    const page = buildSetupPage(parseInt(nextMatch[1]), interaction.guild, settings);
+  // Navigation: goto page
+  const gotoMatch = id.match(/^vm_setup_goto_(.+)$/);
+  if (gotoMatch) {
+    const page = buildSetupPage(gotoMatch[1], interaction.guild, settings, pages);
     return interaction.update({ ...page });
   }
 
-  const backMatch = id.match(/^vm_setup_back_(\d)$/);
-  if (backMatch) {
-    const page = buildSetupPage(parseInt(backMatch[1]), interaction.guild, settings);
-    return interaction.update({ ...page });
-  }
-
-  // Toggles on page 4
+  // Toggles on fun_stuff page
   if (id === 'vm_setup_toggle_callouts') {
     settings.calloutsEnabled = !settings.calloutsEnabled;
     if (settings.calloutsEnabled && settings.watchChannelId) {
@@ -445,8 +476,8 @@ async function handleSetupButton(interaction) {
   guildSettings.set(interaction.guild.id, settings);
   scheduleSave(interaction.guild.id);
 
-  // Re-render current page (page 4 for toggles)
-  const page = buildSetupPage(3, interaction.guild, settings);
+  // Re-render fun_stuff page for toggles
+  const page = buildSetupPage('fun_stuff', interaction.guild, settings, pages);
   return interaction.update({ ...page });
 }
 
@@ -464,8 +495,10 @@ async function handleSetupChannel(interaction) {
   scheduleSave(interaction.guild.id);
   reminderChannels.set(interaction.guild.id, channelId);
 
-  // Re-render page 2 with the channel set
-  const page = buildSetupPage(1, interaction.guild, settings);
+  // Re-render watch_channel page
+  const hasWick = !!(interaction.guild.members.cache.get(WICK_ID));
+  const pages = getSetupPages(hasWick);
+  const page = buildSetupPage('watch_channel', interaction.guild, settings, pages);
   return interaction.update({ ...page });
 }
 
