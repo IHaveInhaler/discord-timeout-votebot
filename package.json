@@ -1,0 +1,14 @@
+{
+  "name": "votemute-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for vote-muting users",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^17.4.0"
+  }
+}
