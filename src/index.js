@@ -97,7 +97,6 @@ client.once('ready', () => {
         .setColor(0xffa500)
         .setTitle('Vote Mute Tip')
         .setDescription(tip)
-        .setFooter({ text: 'Disable with /vm configure > Reminders' })
         .setTimestamp();
 
       channel.send({ embeds: [embed] }).catch(() => {});
