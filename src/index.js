@@ -97,7 +97,6 @@ client.once('ready', () => {
         .setColor(0xffa500)
         .setTitle('Vote Mute Tip')
         .setDescription(tip)
-        .setFooter({ text: 'Disable with /vm configure > Reminders' })
         .setTimestamp();
 
       channel.send({ embeds: [embed] }).catch(() => {});
@@ -167,7 +166,6 @@ client.once('ready', () => {
         .setColor(0xff6b6b)
         .setTitle('\uD83D\uDCE2 Community Callout')
         .setDescription(message)
-        .setFooter({ text: 'Disable with /vm configure > Callouts' })
         .setTimestamp();
 
       channel.send({ embeds: [embed] }).catch(() => {});
