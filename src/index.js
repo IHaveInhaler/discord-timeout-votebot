@@ -4,7 +4,7 @@ require('dotenv').config();
 const { recentChatters, getSettings, getActiveChatters, getStats, reminderChannels, trackChatter } = require('./utils/state');
 const { getActivityMessage, reminderTips, calloutTemplates } = require('./utils/display');
 const { handleVoteMute, handleButton } = require('./handlers/votemute');
-const { handleVmSettings, handleSelectMenu, handleModal, handleDashboardButton, handleSetupButton, handleSetupChannel } = require('./handlers/settings');
+const { handleVmSettings, handleTheme, handleSelectMenu, handleModal, handleDashboardButton, handleSetupButton, handleSetupChannel } = require('./handlers/settings');
 const { setupEvents } = require('./handlers/events');
 
 const client = new Client({

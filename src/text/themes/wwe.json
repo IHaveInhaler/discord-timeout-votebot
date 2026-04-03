@@ -1,0 +1,30 @@
+{
+  "voteTitle": "SMACKDOWN INITIATED",
+  "voteDescription": "BAH GAWD! **{initiator}** has called out **{target}** for a STEEL CAGE MUTE MATCH! THE CROWD GOES WILD!",
+  "voteButton": "FINISH THEM! ({votes}/{needed})",
+  "cancelButton": "Ring the Bell!",
+  "votePassed": "AND THE WINNER IS...",
+  "votePassedDescription": "BY GOD, **{target}** HAS BEEN ELIMINATED! They've been SLAMMED into **{duration} minutes** of silence! SOMEBODY STOP THE DAMN MATCH!",
+  "voteExpired": "NO CONTEST",
+  "voteExpiredDescription": "The match against **{target}** has been declared a NO CONTEST! Only {votes}/{needed} fans showed up! WHAT A DISAPPOINTMENT!",
+  "voteCancelled": "MATCH CANCELLED",
+  "userMutedTitle": "K.O.!",
+  "userMutedDescription": "**{target}** is DOWN! DOWN FOR THE COUNT! **{duration} minutes** on the mat! THE REFEREE HAS MADE THE CALL!",
+  "dmTitle": "YOU'VE BEEN ELIMINATED!",
+  "dmDescription": "THE CROWD IN **{server}** HAS SPOKEN! You've been pinned for a **{duration}-minute** count! YOUR CHAMPIONSHIP REIGN OF TALKING IS OVER!",
+  "dmVotersLabel": "The Tag Team That Took You Down",
+  "dmTip": "WANT A REMATCH? Boost the server for 1 HOUR of INVINCIBILITY! THAT'S RIGHT, UNLIMITED POWER!",
+  "unauthorizedUnmuteTitle": "ILLEGAL INTERFERENCE!",
+  "unauthorizedUnmuteDescription": "WAIT A MINUTE! **{executor}** JUST RAN IN FROM BACKSTAGE AND TRIED TO SAVE **{target}**! THAT'S ILLEGAL! SECURITY!",
+  "selfMuteReactions": [
+    "BAH GAWD! THEY HIT THEMSELVES WITH THEIR OWN CHAIR!",
+    "WHAT IS HAPPENING?! THE WRESTLER IS PINNING THEMSELVES!",
+    "IN 30 YEARS OF CALLING MATCHES I HAVE NEVER SEEN SOMEONE SUPLEX THEMSELVES!",
+    "THEY'VE TAPPED OUT BEFORE THE MATCH EVEN STARTED! UNPRECEDENTED!",
+    "THE CROWD IS STUNNED! A SELF-ELIMINATION! THIS IS UNHEARD OF IN THE HISTORY OF OUR SPORT!"
+  ],
+  "progressLabel": "Crowd Meter",
+  "votersLabel": "The Crowd",
+  "activeLabel": "Fans in Arena",
+  "footerText": "CAST YOUR VOTE! LET'S GET READY TO RUMBLEEEE!"
+}

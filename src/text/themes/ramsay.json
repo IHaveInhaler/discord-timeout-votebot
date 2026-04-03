@@ -1,0 +1,30 @@
+{
+  "voteTitle": "KITCHEN INSPECTION",
+  "voteDescription": "**Chef {initiator}** has had ENOUGH of **{target}**! This chat is absolutely DISGUSTING! Vote to send them out!",
+  "voteButton": "GET OUT! ({votes}/{needed})",
+  "cancelButton": "Give Them Another Chance",
+  "votePassed": "YOU'RE DONE!",
+  "votePassedDescription": "**{target}**, give me your jacket. You're DONE. **{duration} minutes**. GET OUT OF MY KITCHEN! Finally, some good f***ing silence.",
+  "voteExpired": "BACK TO YOUR STATION",
+  "voteExpiredDescription": "Unbelievable. Only {votes}/{needed} of you voted against **{target}**. You're ALL useless! Back to your stations!",
+  "voteCancelled": "FINE, THEY CAN STAY",
+  "userMutedTitle": "SHUT IT DOWN!",
+  "userMutedDescription": "**{target}** has been kicked out of the kitchen for **{duration} minutes**. This chat is FINALLY starting to look like something I'd serve.",
+  "dmTitle": "YOU DONKEY!",
+  "dmDescription": "The kitchen of **{server}** has voted you OUT for **{duration} minutes**. Your messages were RAW, your takes were BURNT, and your vibes were absolutely ROTTEN.",
+  "dmVotersLabel": "The Chefs Who Sent You Home",
+  "dmTip": "Want back in the kitchen? Boost the server. Even I respect someone who pays their way back in. 1 hour immunity, you donut.",
+  "unauthorizedUnmuteTitle": "OI! WHO LET THEM BACK IN?!",
+  "unauthorizedUnmuteDescription": "**{executor}** tried to sneak **{target}** back into the kitchen! ARE YOU TRYING TO GIVE ME A HEART ATTACK?! Get them BOTH out!",
+  "selfMuteReactions": [
+    "They voted to kick THEMSELVES out?! Even I'M impressed by that level of self-awareness, you donut.",
+    "For the first time in my career, someone has voluntarily left the kitchen. I'm actually speechless.",
+    "YOU voted for YOURSELF?! That's the first smart thing you've done all day!",
+    "The chef has tasted their own cooking and decided to leave. Can't say I blame them.",
+    "FINALLY! Someone in this kitchen who knows they're USELESS! Respect, you absolute walnut."
+  ],
+  "progressLabel": "Kitchen Vote",
+  "votersLabel": "Head Chefs",
+  "activeLabel": "Chefs in Kitchen",
+  "footerText": "VOTE NOW OR GET OUT OF MY KITCHEN!"
+}

@@ -18,12 +18,13 @@ const DEFAULT_SETTINGS = {
   immuneRoles: [],
   remindersEnabled: false,
   calloutsEnabled: false,
-  voteStyle: 'default',
+  theme: 'default',
   allowSelfMute: true,
   maxActiveVotes: 1,
   initiatorCooldown: 0,
   watchChannelId: null,
   minMessages: 1,              // min messages to count as active chatter
+  managerRoleId: null,         // role that can use /vm setup, /vm configure, and bypass unmute penalties
 };
 
 const initiatorCooldowns = new Collection();

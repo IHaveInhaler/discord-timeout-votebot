@@ -234,6 +234,10 @@ async function handleVmSettings(interaction) {
   if (subcommand === 'setup') {
     return handleSetup(interaction);
   }
+
+  if (subcommand === 'theme') {
+    return handleTheme(interaction);
+  }
 }
 
 const WICK_ID = '536991182035746816';
@@ -368,7 +372,7 @@ function buildSetupPage(pageName, guild, settings, pages) {
       .addFields(
         { name: `\uD83D\uDCE2 Random Callouts ${settings.calloutsEnabled ? '\u2705' : '\u274C'}`, value: 'Bot randomly roasts users based on their mute stats every ~45 min.', inline: true },
         { name: `\uD83D\uDCA1 Periodic Tips ${settings.remindersEnabled ? '\u2705' : '\u274C'}`, value: 'Sends funny vote mute tips every 2 hours.', inline: true },
-        { name: `\uD83C\uDFAD Vote Style: ${settings.voteStyle === 'yay_nay' ? 'Yay/Nay' : 'Default'}`, value: '"Vote to Mute" vs "Yay! Mute em / Nay!"', inline: true },
+        { name: `\uD83C\uDFAD Theme: ${settings.theme}`, value: 'Use `/vm theme` to change', inline: true },
         { name: `\uD83E\uDD21 Allow Self-Mute ${settings.allowSelfMute ? '\u2705' : '\u274C'}`, value: 'Let users vote mute themselves (bot roasts them for it).', inline: true },
       )
       .setFooter({ text: `Step ${pageNum} of ${totalPages} \u2022 Optional \u2014 toggle these anytime with /vm configure` });
@@ -376,7 +380,7 @@ function buildSetupPage(pageName, guild, settings, pages) {
     const toggleRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('vm_setup_toggle_callouts').setLabel(`Callouts: ${settings.calloutsEnabled ? 'ON' : 'OFF'}`).setStyle(settings.calloutsEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('vm_setup_toggle_reminders').setLabel(`Tips: ${settings.remindersEnabled ? 'ON' : 'OFF'}`).setStyle(settings.remindersEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('vm_setup_toggle_votestyle').setLabel(`Style: ${settings.voteStyle === 'yay_nay' ? 'Yay/Nay' : 'Default'}`).setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('vm_setup_goto_theme').setLabel(`Theme: ${settings.theme}`).setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('vm_setup_toggle_selfmute').setLabel(`Self-Mute: ${settings.allowSelfMute ? 'ON' : 'OFF'}`).setStyle(settings.allowSelfMute ? ButtonStyle.Success : ButtonStyle.Secondary),
     );
     const navRow = new ActionRowBuilder().addComponents(
@@ -400,7 +404,7 @@ function buildSetupPage(pageName, guild, settings, pages) {
         { name: '\u23F1\uFE0F Vote Duration', value: `${settings.voteDuration}s`, inline: true },
         { name: '\uD83D\uDD52 Activity Window', value: `${settings.activityWindow} min`, inline: true },
         { name: '\uD83D\uDCAC Min Messages', value: `${settings.minMessages}`, inline: true },
-        { name: '\uD83C\uDFAD Vote Style', value: settings.voteStyle === 'yay_nay' ? 'Yay/Nay' : 'Default', inline: true },
+        { name: '\uD83C\uDFAD Vote Style', value: settings.theme, inline: true },
         { name: '\uD83D\uDCE2 Callouts', value: settings.calloutsEnabled ? 'ON' : 'OFF', inline: true },
         { name: '\uD83D\uDCA1 Tips', value: settings.remindersEnabled ? 'ON' : 'OFF', inline: true },
         { name: '\u2139\uFE0F What now?', value: [
@@ -459,8 +463,6 @@ async function handleSetupButton(interaction) {
     if (settings.remindersEnabled && settings.watchChannelId) {
       reminderChannels.set(interaction.guild.id, settings.watchChannelId);
     }
-  } else if (id === 'vm_setup_toggle_votestyle') {
-    settings.voteStyle = settings.voteStyle === 'yay_nay' ? 'default' : 'yay_nay';
   } else if (id === 'vm_setup_toggle_selfmute') {
     settings.allowSelfMute = !settings.allowSelfMute;
   } else if (id === 'vm_setup_configure') {
@@ -559,11 +561,12 @@ async function handleConfigure(interaction) {
         { label: 'Immune Roles', description: `Currently: ${settings.immuneRoles.length} role(s)`, value: 'immune_roles' },
         { label: 'Periodic Reminders', description: `Currently: ${settings.remindersEnabled ? 'ON' : 'OFF'}`, value: 'reminders' },
         { label: 'Random Callouts', description: `Currently: ${settings.calloutsEnabled ? 'ON' : 'OFF'}`, value: 'callouts' },
-        { label: 'Vote Button Style', description: `Currently: ${settings.voteStyle === 'yay_nay' ? 'Yay/Nay' : 'Vote to Mute'}`, value: 'vote_style' },
+        { label: 'Theme', description: `Currently: ${settings.theme} (use /vm theme)`, value: 'theme_info' },
         { label: 'Max Active Votes', description: `Currently: ${settings.maxActiveVotes}`, value: 'max_active_votes' },
         { label: 'Initiator Cooldown', description: `Currently: ${settings.initiatorCooldown ? settings.initiatorCooldown + 's' : 'OFF'}`, value: 'initiator_cooldown' },
         { label: 'Allow Self-Mute', description: `Currently: ${settings.allowSelfMute ? 'ON' : 'OFF'}`, value: 'allow_self_mute' },
         { label: 'Min Messages for Active', description: `Currently: ${settings.minMessages}`, value: 'min_messages' },
+        { label: 'Manager Role', description: `Currently: ${settings.managerRoleId ? 'Set' : 'None'}`, value: 'manager_role' },
       ),
   );
 
@@ -571,6 +574,39 @@ async function handleConfigure(interaction) {
 }
 
 async function handleSelectMenu(interaction) {
+  // Manager role select
+  if (interaction.customId === 'vm_manager_role') {
+    if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: 'Only administrators can change settings.', flags: 64 });
+    }
+    const settings = getSettings(interaction.guild.id);
+    settings.managerRoleId = interaction.values[0] || null;
+    guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
+
+    const display = settings.managerRoleId ? `<@&${settings.managerRoleId}>` : 'None';
+    const embed = new EmbedBuilder()
+      .setColor(0x00ff00)
+      .setTitle('Setting Updated')
+      .setDescription(`**Manager Role** set to: ${display}\nThis role can use /vm setup, /vm configure, and won't be penalized for unauthorized unmutes.`);
+    return interaction.reply({ embeds: [embed], flags: 64 });
+  }
+
+  // Theme select
+  if (interaction.customId === 'vm_theme_select') {
+    const settings = getSettings(interaction.guild.id);
+    settings.theme = interaction.values[0];
+    guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
+
+    const { getTheme } = require('../utils/display');
+    const theme = getTheme(settings.theme);
+    const embed = new EmbedBuilder()
+      .setColor(0x00ff00)
+      .setTitle('Theme Updated!')
+      .setDescription(`Theme set to **${settings.theme}**\n\nPreview: *${theme.voteDescription.replace('{initiator}', 'Someone').replace('{target}', 'Someone Else')}*`);
+    return interaction.reply({ embeds: [embed], flags: 64 });
+  }
   if (interaction.customId === 'vm_immune_roles') {
     if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
       return interaction.reply({ content: 'Only administrators can change settings.', flags: 64 });
@@ -640,19 +676,19 @@ async function handleSelectMenu(interaction) {
     return interaction.reply({ embeds: [embed], flags: 64 });
   }
 
-  if (selected === 'vote_style') {
-    const settings = getSettings(interaction.guild.id);
-    settings.voteStyle = settings.voteStyle === 'yay_nay' ? 'default' : 'yay_nay';
-    guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
+  if (selected === 'theme_info') {
+    return interaction.reply({ content: 'Use `/vm theme` to browse and select a theme.', flags: 64 });
+  }
 
-    const styleName = settings.voteStyle === 'yay_nay' ? 'Yay / Nay' : 'Vote to Mute';
-    const embed = new EmbedBuilder()
-      .setColor(0x00ff00)
-      .setTitle('Setting Updated')
-      .setDescription(`**Vote Button Style** is now **${styleName}**`);
-
-    return interaction.reply({ embeds: [embed], flags: 64 });
+  if (selected === 'manager_role') {
+    const roleSelect = new ActionRowBuilder().addComponents(
+      new RoleSelectMenuBuilder()
+        .setCustomId('vm_manager_role')
+        .setPlaceholder('Select manager role (can use setup/configure, bypass unmute penalty)')
+        .setMinValues(0)
+        .setMaxValues(1),
+    );
+    return interaction.reply({ content: 'Select the bot manager role:', components: [roleSelect], flags: 64 });
   }
 
   if (selected === 'callouts') {
@@ -805,4 +841,49 @@ async function handleModal(interaction) {
   await interaction.reply({ embeds: [embed], components: [selectMenu], flags: 64 });
 }
 
-module.exports = { handleVmSettings, handleSelectMenu, handleModal, handleDashboardButton, handleSetupButton, handleSetupChannel };
+async function handleTheme(interaction) {
+  const hasPerms = interaction.memberPermissions.has(PermissionFlagsBits.Administrator) ||
+    (getSettings(interaction.guild.id).managerRoleId && interaction.member.roles.cache.has(getSettings(interaction.guild.id).managerRoleId));
+
+  if (!hasPerms) {
+    return interaction.reply({ content: 'Only administrators or bot managers can change the theme.', flags: 64 });
+  }
+
+  const settings = getSettings(interaction.guild.id);
+  const { AVAILABLE_THEMES, getTheme } = require('../utils/display');
+
+  const themeDescriptions = {
+    default: 'Standard vote mute',
+    yay_nay: 'Yay! / Nay! buttons',
+    law_and_order: 'Court is in session, Your Honor',
+    pirate: 'Walk the plank, scallywag',
+    corporate: 'Per company policy Section 4.2.1...',
+    wwe: 'BAH GAWD! SOMEBODY STOP THE MATCH!',
+    nature: 'And here we observe the herd...',
+    ramsay: 'THIS CHAT IS RAW! GET OUT!',
+  };
+
+  const options = AVAILABLE_THEMES.map(name => ({
+    label: name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    description: themeDescriptions[name] || name,
+    value: name,
+    default: name === settings.theme,
+  }));
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle('\uD83C\uDFAD Theme Selector')
+    .setDescription(`Current theme: **${settings.theme}**\n\nPick a theme below to change how the bot talks. Themes affect vote embeds, DMs, announcements, and self-mute reactions.`)
+    .setFooter({ text: 'Themes do not affect /vm setup or /vm configure' });
+
+  const selectMenu = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('vm_theme_select')
+      .setPlaceholder('Select a theme...')
+      .addOptions(options),
+  );
+
+  return interaction.reply({ embeds: [embed], components: [selectMenu], flags: 64 });
+}
+
+module.exports = { handleVmSettings, handleTheme, handleSelectMenu, handleModal, handleDashboardButton, handleSetupButton, handleSetupChannel };

@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const { getSettings, getActiveChatters, activeVotes, boosterImmunity, voteCooldowns, activeMutes, reminderChannels, initiatorCooldowns, recordMute, recordFailedVote } = require('../utils/state');
-const { selfMuteReactions } = require('../utils/display');
+const { getTheme, getSelfMuteReactions } = require('../utils/display');
 
 function buildProgressBar(current, total, barLength = 16) {
   const filled = Math.round((current / total) * barLength);
@@ -8,34 +8,28 @@ function buildProgressBar(current, total, barLength = 16) {
   return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${current}/${total}`;
 }
 
-function getVoteLabel(settings, votes, votesNeeded) {
-  if (settings.voteStyle === 'yay_nay') {
-    return `Yay! Mute em (${votes}/${votesNeeded})`;
+function t(template, vars) {
+  let result = template;
+  for (const [key, val] of Object.entries(vars)) {
+    result = result.replaceAll(`{${key}}`, val);
   }
-  return `Vote to Mute (${votes}/${votesNeeded})`;
+  return result;
 }
 
-function getCancelLabel(settings) {
-  if (settings.voteStyle === 'yay_nay') {
-    return 'Nay!';
-  }
-  return 'Cancel';
-}
-
-function buildVoteEmbed(target, initiator, votes, votesNeeded, voteDuration, activeChattersCount) {
+function buildVoteEmbed(target, initiator, votes, votesNeeded, voteDuration, activeChattersCount, theme) {
   const voterList = [...votes].map(id => `<@${id}>`).join(', ');
   return new EmbedBuilder()
     .setColor(0xff4444)
-    .setTitle('Vote Mute')
-    .setDescription(`**${initiator.displayName}** has initiated a vote to mute **${target.displayName}**!`)
+    .setTitle(theme.voteTitle)
+    .setDescription(t(theme.voteDescription, { initiator: initiator.displayName, target: target.displayName }))
     .addFields(
       { name: 'Votes', value: `${votes.size}/${votesNeeded}`, inline: true },
       { name: 'Time Remaining', value: `${voteDuration}s`, inline: true },
-      { name: 'Active Chatters', value: `${activeChattersCount}`, inline: true },
-      { name: 'Progress', value: buildProgressBar(votes.size, votesNeeded) },
-      { name: 'Voters', value: voterList || 'None' },
+      { name: theme.activeLabel, value: `${activeChattersCount}`, inline: true },
+      { name: theme.progressLabel, value: buildProgressBar(votes.size, votesNeeded) },
+      { name: theme.votersLabel, value: voterList || 'None' },
     )
-    .setFooter({ text: 'Click the button below to cast your vote' })
+    .setFooter({ text: theme.footerText })
     .setTimestamp();
 }
 
@@ -43,8 +37,14 @@ async function executeMute(guild, targetId, channel, votes, settings) {
   const member = await guild.members.fetch(targetId).catch(() => null);
   if (!member) return;
 
+  const theme = getTheme(settings.theme);
   const muteDuration = settings.muteDuration * 60 * 1000;
-  const voterMentions = [...votes].map(id => `<@${id}>`).join(', ');
+
+  // Build voter list with (really?) for self-voters
+  const voterMentions = [...votes].map(id => {
+    const mention = `<@${id}>`;
+    return id === targetId ? `${mention} *(really?)*` : mention;
+  }).join(', ');
 
   try {
     await member.timeout(muteDuration, 'Vote muted by community');
@@ -63,11 +63,11 @@ async function executeMute(guild, targetId, channel, votes, settings) {
     try {
       const dmEmbed = new EmbedBuilder()
         .setColor(0xff4444)
-        .setTitle('You\'ve been vote muted!')
-        .setDescription(`You have been muted in **${guild.name}** for **${settings.muteDuration} minutes** by community vote.`)
+        .setTitle(theme.dmTitle)
+        .setDescription(t(theme.dmDescription, { server: guild.name, duration: settings.muteDuration, target: member.displayName }))
         .addFields(
-          { name: 'Voted against you', value: voterMentions },
-          { name: 'Tip', value: 'Boosting the server after being muted grants you 1 hour of immunity from future vote mutes!' },
+          { name: theme.dmVotersLabel, value: voterMentions },
+          { name: 'Tip', value: theme.dmTip },
         )
         .setTimestamp();
       await member.send({ embeds: [dmEmbed] });
@@ -75,9 +75,9 @@ async function executeMute(guild, targetId, channel, votes, settings) {
 
     const summaryEmbed = new EmbedBuilder()
       .setColor(0xff4444)
-      .setTitle('User Muted')
-      .setDescription(`**${member.displayName}** has been muted for **${settings.muteDuration} minutes**.`)
-      .addFields({ name: 'Voted by', value: voterMentions })
+      .setTitle(theme.userMutedTitle)
+      .setDescription(t(theme.userMutedDescription, { target: member.displayName, duration: settings.muteDuration }))
+      .addFields({ name: theme.dmVotersLabel, value: voterMentions })
       .setTimestamp();
 
     await channel.send({ embeds: [summaryEmbed] });
@@ -90,6 +90,7 @@ async function handleVoteMute(interaction) {
   const target = interaction.options.getUser('user');
   const guild = interaction.guild;
   const settings = getSettings(guild.id);
+  const theme = getTheme(settings.theme);
 
   if (target.bot) {
     return interaction.reply({ content: 'You cannot vote mute a bot.', flags: 64 });
@@ -129,7 +130,6 @@ async function handleVoteMute(interaction) {
     return interaction.reply({ content: `A vote mute for ${target.displayName} is on cooldown. (${remaining} min remaining)`, flags: 64 });
   }
 
-  // Check initiator cooldown
   if (!isAdmin && settings.initiatorCooldown > 0) {
     const initKey = `${guild.id}-${interaction.user.id}`;
     const initExpires = initiatorCooldowns.get(initKey);
@@ -139,7 +139,6 @@ async function handleVoteMute(interaction) {
     }
   }
 
-  // Check max active votes
   const guildVotes = [...activeVotes.entries()].filter(([k]) => k.startsWith(guild.id));
   if (guildVotes.length >= settings.maxActiveVotes) {
     return interaction.reply({ content: `Maximum active votes reached (${settings.maxActiveVotes}). Wait for a current vote to finish.`, flags: 64 });
@@ -150,11 +149,11 @@ async function handleVoteMute(interaction) {
   const votesNeeded = Math.max(minVotes, Math.ceil(activeChatters.length * settings.threshold));
   const votes = new Set([interaction.user.id]);
 
-  const embed = buildVoteEmbed(target, interaction.user, votes, votesNeeded, settings.voteDuration, activeChatters.length);
+  const embed = buildVoteEmbed(target, interaction.user, votes, votesNeeded, settings.voteDuration, activeChatters.length, theme);
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('vm_vote').setLabel(getVoteLabel(settings, votes.size, votesNeeded)).setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('vm_cancel').setLabel(getCancelLabel(settings)).setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('vm_vote').setLabel(t(theme.voteButton, { votes: votes.size, needed: votesNeeded })).setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('vm_cancel').setLabel(theme.cancelButton).setStyle(ButtonStyle.Secondary),
   );
 
   if (votes.size >= votesNeeded) {
@@ -165,14 +164,12 @@ async function handleVoteMute(interaction) {
 
   const reply = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
 
-  // Self-mute reaction
   if (isSelfMute) {
-    const reaction = selfMuteReactions[Math.floor(Math.random() * selfMuteReactions.length)];
-    const selfEmbed = new EmbedBuilder()
-      .setColor(0xffff00)
-      .setDescription(reaction)
-      .setTimestamp();
-    interaction.channel.send({ embeds: [selfEmbed] }).catch(() => {});
+    const reactions = getSelfMuteReactions(settings.theme);
+    const reaction = reactions[Math.floor(Math.random() * reactions.length)];
+    interaction.channel.send({ embeds: [
+      new EmbedBuilder().setColor(0xffff00).setDescription(reaction).setTimestamp(),
+    ] }).catch(() => {});
   }
 
   const voteKey = `${guild.id}-${target.id}`;
@@ -188,7 +185,6 @@ async function handleVoteMute(interaction) {
     votesNeeded,
   });
 
-  // Set initiator cooldown
   if (settings.initiatorCooldown > 0) {
     initiatorCooldowns.set(`${guild.id}-${interaction.user.id}`, Date.now() + settings.initiatorCooldown * 1000);
   }
@@ -202,8 +198,8 @@ async function handleVoteMute(interaction) {
 
     const expiredEmbed = EmbedBuilder.from(embed)
       .setColor(0x808080)
-      .setTitle('Vote Mute Expired')
-      .setDescription(`Vote to mute **${target.displayName}** has expired. Only ${votes.size}/${votesNeeded} votes received.`);
+      .setTitle(theme.voteExpired)
+      .setDescription(t(theme.voteExpiredDescription, { target: target.displayName, votes: votes.size, needed: votesNeeded }));
 
     const disabledRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('vm_vote').setLabel('Expired').setStyle(ButtonStyle.Secondary).setDisabled(true),
@@ -216,7 +212,6 @@ async function handleVoteMute(interaction) {
 async function handleButton(interaction, client) {
   const guild = interaction.guild;
 
-  // Find vote by matching messageId
   let voteKey = null;
   let vote = null;
   for (const [key, v] of activeVotes) {
@@ -231,6 +226,9 @@ async function handleButton(interaction, client) {
     return interaction.reply({ content: 'This vote has expired.', flags: 64 });
   }
 
+  const settings = getSettings(guild.id);
+  const theme = getTheme(settings.theme);
+
   if (interaction.customId === 'vm_cancel') {
     if (interaction.user.id !== vote.startedBy && !interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
       return interaction.reply({ content: 'Only the initiator or an admin can cancel this vote.', flags: 64 });
@@ -240,8 +238,8 @@ async function handleButton(interaction, client) {
 
     const cancelEmbed = new EmbedBuilder()
       .setColor(0x808080)
-      .setTitle('Vote Mute Cancelled')
-      .setDescription('The vote mute has been cancelled.')
+      .setTitle(theme.voteCancelled)
+      .setDescription('The vote has been cancelled.')
       .setTimestamp();
 
     const disabledRow = new ActionRowBuilder().addComponents(
@@ -257,27 +255,26 @@ async function handleButton(interaction, client) {
       return interaction.reply({ content: 'You have already voted.', flags: 64 });
     }
 
-    // Self-vote on own mute — allow it but roast them
     if (interaction.user.id === vote.targetId) {
-      const reaction = selfMuteReactions[Math.floor(Math.random() * selfMuteReactions.length)];
+      const reactions = getSelfMuteReactions(settings.theme);
+      const reaction = reactions[Math.floor(Math.random() * reactions.length)];
       interaction.channel.send({ embeds: [
         new EmbedBuilder().setColor(0xffff00).setDescription(reaction).setTimestamp(),
       ] }).catch(() => {});
     }
 
     vote.votes.add(interaction.user.id);
-    const settings = getSettings(guild.id);
 
     if (vote.votes.size >= vote.votesNeeded) {
       activeVotes.delete(voteKey);
 
       const passedEmbed = new EmbedBuilder()
         .setColor(0x00ff00)
-        .setTitle('Vote Mute Passed!')
-        .setDescription(`**${vote.targetTag}** has been muted for ${settings.muteDuration} minutes.`)
+        .setTitle(theme.votePassed)
+        .setDescription(t(theme.votePassedDescription, { target: vote.targetTag, duration: settings.muteDuration }))
         .addFields(
           { name: 'Votes', value: `${vote.votes.size}/${vote.votesNeeded}`, inline: true },
-          { name: 'Voters', value: [...vote.votes].map(id => `<@${id}>`).join(', ') },
+          { name: theme.votersLabel, value: [...vote.votes].map(id => `<@${id}>`).join(', ') },
         )
         .setTimestamp();
 
@@ -291,20 +288,20 @@ async function handleButton(interaction, client) {
 
       const updatedEmbed = new EmbedBuilder()
         .setColor(0xff4444)
-        .setTitle('Vote Mute')
-        .setDescription(`**${initiator.displayName}** has initiated a vote to mute **${vote.targetTag}**!`)
+        .setTitle(theme.voteTitle)
+        .setDescription(t(theme.voteDescription, { initiator: initiator.displayName, target: vote.targetTag }))
         .addFields(
           { name: 'Votes', value: `${vote.votes.size}/${vote.votesNeeded}`, inline: true },
           { name: 'Time Remaining', value: `~${remaining}s`, inline: true },
-          { name: 'Progress', value: buildProgressBar(vote.votes.size, vote.votesNeeded) },
-          { name: 'Voters', value: voterList },
+          { name: theme.progressLabel, value: buildProgressBar(vote.votes.size, vote.votesNeeded) },
+          { name: theme.votersLabel, value: voterList },
         )
-        .setFooter({ text: 'Click the button below to cast your vote' })
+        .setFooter({ text: theme.footerText })
         .setTimestamp();
 
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('vm_vote').setLabel(getVoteLabel(settings, vote.votes.size, vote.votesNeeded)).setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('vm_cancel').setLabel(getCancelLabel(settings)).setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('vm_vote').setLabel(t(theme.voteButton, { votes: vote.votes.size, needed: vote.votesNeeded })).setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('vm_cancel').setLabel(theme.cancelButton).setStyle(ButtonStyle.Secondary),
       );
 
       await interaction.update({ embeds: [updatedEmbed], components: [row] });

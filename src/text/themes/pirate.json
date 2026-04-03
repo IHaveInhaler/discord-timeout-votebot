@@ -1,0 +1,30 @@
+{
+  "voteTitle": "MUTINY VOTE",
+  "voteDescription": "**Captain {initiator}** has called for **{target}** to walk the plank! All hands on deck, cast yer votes!",
+  "voteButton": "Walk the Plank! ({votes}/{needed})",
+  "cancelButton": "Spare the Scallywag",
+  "votePassed": "OVERBOARD!",
+  "votePassedDescription": "The crew has spoken! **{target}** has been thrown overboard for **{duration} minutes**. Davy Jones sends his regards.",
+  "voteExpired": "MUTINY FAILED",
+  "voteExpiredDescription": "The mutiny against **{target}** has failed. Only {votes}/{needed} scallywags showed up. Cowards, the lot of ye.",
+  "voteCancelled": "MUTINY CALLED OFF",
+  "userMutedTitle": "YE BE SILENCED",
+  "userMutedDescription": "**{target}** has been gagged and thrown in the brig for **{duration} minutes**. Arrr.",
+  "dmTitle": "Ye've been silenced, scallywag!",
+  "dmDescription": "The crew of **{server}** voted ye into Davy Jones' locker for **{duration} minutes**. Yer crimes against the ship will not be forgotten.",
+  "dmVotersLabel": "The Mutineers",
+  "dmTip": "Ye can buy yer freedom by boostin' the server. One hour of immunity, savvy?",
+  "unauthorizedUnmuteTitle": "TREACHERY ON THE HIGH SEAS!",
+  "unauthorizedUnmuteDescription": "**{executor}** tried to spring **{target}** from the brig without the captain's orders! Throw 'em in too!",
+  "selfMuteReactions": [
+    "The scallywag voted to walk their OWN plank?! Madness!",
+    "Arr, they've thrown themselves overboard! No one asked ye to do that!",
+    "The crew is confused. Why would ye mutiny against yerself?",
+    "Self-keel-hauling. That's a new one for the captain's log.",
+    "Ye absolute barnacle. Voting against yerself. Legend."
+  ],
+  "progressLabel": "Mutiny Progress",
+  "votersLabel": "Mutineers",
+  "activeLabel": "Crew on Deck",
+  "footerText": "Cast yer vote below, ye scurvy dogs"
+}

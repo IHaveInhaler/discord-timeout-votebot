@@ -1,0 +1,30 @@
+{
+  "voteTitle": "PERFORMANCE REVIEW INITIATED",
+  "voteDescription": "**{initiator}** from HR has flagged **{target}** for a mandatory performance review. Please submit your feedback.",
+  "voteButton": "Submit Complaint ({votes}/{needed})",
+  "cancelButton": "Withdraw Complaint",
+  "votePassed": "EMPLOYMENT SUSPENDED",
+  "votePassedDescription": "Following a thorough review, **{target}**'s speaking privileges have been suspended for **{duration} minutes** pending further investigation.",
+  "voteExpired": "REVIEW INCONCLUSIVE",
+  "voteExpiredDescription": "The performance review of **{target}** has been closed due to insufficient feedback. Only {votes}/{needed} stakeholders responded. Please check your emails.",
+  "voteCancelled": "REVIEW WITHDRAWN",
+  "userMutedTitle": "MEMO: SPEAKING PRIVILEGES REVOKED",
+  "userMutedDescription": "Per company policy Section 4.2.1, **{target}**'s communication access has been revoked for **{duration} minutes**. This decision is final and not subject to appeal at this time.",
+  "dmTitle": "RE: RE: RE: Your Speaking Privileges",
+  "dmDescription": "Dear {target},\n\nFollowing a comprehensive 360-degree feedback review in **{server}**, your speaking privileges have been suspended for **{duration} minutes**.\n\nPlease do not reply to this message.",
+  "dmVotersLabel": "Stakeholder Feedback Submitted By",
+  "dmTip": "Per the employee handbook, server boosters are eligible for a 1-hour exemption from future reviews. Please see your manager (Nitro store) for details.",
+  "unauthorizedUnmuteTitle": "UNAUTHORIZED ACCESS DETECTED",
+  "unauthorizedUnmuteDescription": "**{executor}** has attempted to modify **{target}**'s suspension without proper authorization. This has been escalated to upper management.",
+  "selfMuteReactions": [
+    "The employee has... filed a complaint against themselves? HR is confused but will process it.",
+    "Self-evaluation: unsatisfactory. We appreciate the honesty.",
+    "Per your own feedback, your performance has been rated 'needs improvement'. Noted.",
+    "This is the most productive thing they've done all quarter.",
+    "The employee has requested a voluntary leave of absence from chatting. Approved."
+  ],
+  "progressLabel": "Feedback Collected",
+  "votersLabel": "Stakeholders",
+  "activeLabel": "Active Employees",
+  "footerText": "Please submit your feedback below before the deadline"
+}

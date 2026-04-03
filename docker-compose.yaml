@@ -1,0 +1,7 @@
+services:
+  votemute: # Literally the smallest compose file I've ever seen hahahahhahaha
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data

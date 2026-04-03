@@ -25,6 +25,10 @@ const commands = [
     .addSubcommand(sub =>
       sub.setName('setup')
         .setDescription('Setup guide and compatibility checks'),
+    )
+    .addSubcommand(sub =>
+      sub.setName('theme')
+        .setDescription('Change the bot theme (Law & Order, Pirate, WWE, etc.)'),
     ),
 ].map(cmd => cmd.toJSON());
 

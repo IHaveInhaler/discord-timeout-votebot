@@ -188,6 +188,28 @@ All configurable via `/vm configure`:
 | Periodic Reminders | OFF | Fun tips posted every 2 hours |
 | Random Callouts | OFF | Roasts users based on their mute stats |
 
+## Themes
+
+The bot has 8 themes that change ALL bot text — vote embeds, DMs, announcements, self-mute roasts, everything (except `/vm setup` and `/vm configure`). Switch with `/vm theme`.
+
+| Theme | Vibe |
+|-------|------|
+| **Default** | Standard vote mute |
+| **Yay/Nay** | Same but with Yay!/Nay! buttons |
+| **Law & Order** | "COURT IS NOW IN SESSION" — full legal cosplay |
+| **Pirate** | "Walk the plank, scallywag" — arrr |
+| **Corporate** | "Per company policy Section 4.2.1..." — dry HR energy |
+| **WWE** | "BAH GAWD! SOMEBODY STOP THE MATCH!" — full announcer mode |
+| **Nature Documentary** | "And here we observe the herd..." — David Attenborough vibes |
+| **Gordon Ramsay** | "THIS CHAT IS RAW! GET OUT OF MY KITCHEN!" |
+
+## Manager Role
+
+You can set a **Manager Role** via `/vm configure`. Users with this role:
+- Can use `/vm setup`, `/vm configure`, and `/vm theme`
+- Won't be penalized for unauthorized unmutes
+- Cannot be admins but get bot management powers
+
 ## Customizing Text & Messages
 
 All the bot's text is stored in easy-to-edit JSON files under `src/text/`. Want to change what the bot says? Just edit the files:

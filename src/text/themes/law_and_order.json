@@ -1,0 +1,30 @@
+{
+  "voteTitle": "COURT IS NOW IN SESSION",
+  "voteDescription": "**The Honorable {initiator}** has filed a motion to silence **{target}**. The jury will now deliberate.",
+  "voteButton": "GUILTY ({votes}/{needed})",
+  "cancelButton": "OBJECTION!",
+  "votePassed": "JUSTICE HAS BEEN SERVED",
+  "votePassedDescription": "The defendant **{target}** has been found GUILTY by a jury of their peers and sentenced to **{duration} minutes** of silence.",
+  "voteExpired": "CASE DISMISSED",
+  "voteExpiredDescription": "The case against **{target}** has been dismissed due to insufficient jury votes. {votes}/{needed} jurors showed up. Pathetic.",
+  "voteCancelled": "MISTRIAL DECLARED",
+  "userMutedTitle": "SENTENCE CARRIED OUT",
+  "userMutedDescription": "The defendant **{target}** has been escorted to the shadow realm for **{duration} minutes**. Order in the court.",
+  "dmTitle": "YOU HAVE BEEN FOUND GUILTY",
+  "dmDescription": "The court of **{server}** has sentenced you to **{duration} minutes** of silence. Your crimes against the chat have not gone unnoticed.",
+  "dmVotersLabel": "The Jury",
+  "dmTip": "Appeals can be filed by boosting the server. The court accepts bribes in the form of Nitro boosts (1 hour immunity).",
+  "unauthorizedUnmuteTitle": "CONTEMPT OF COURT!",
+  "unauthorizedUnmuteDescription": "**{executor}** has been held in contempt for attempting to pardon **{target}** without judicial authority.",
+  "selfMuteReactions": [
+    "The defendant has... pleaded guilty? Your Honor, this is unprecedented.",
+    "Let the record show that the defendant has voted for their own conviction. The court is baffled.",
+    "OBJECTION! The defendant can't— actually, you know what, we'll allow it.",
+    "The defendant has exercised their right to self-incrimination. Bold strategy.",
+    "Your Honor, the defendant appears to be their own hostile witness."
+  ],
+  "progressLabel": "Jury Progress",
+  "votersLabel": "Jury Members",
+  "activeLabel": "Witnesses Present",
+  "footerText": "Click below to cast your verdict"
+}

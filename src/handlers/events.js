@@ -1,5 +1,6 @@
 const { EmbedBuilder, PermissionFlagsBits, AuditLogEvent } = require('discord.js');
 const { getSettings, getStats, boosterImmunity, activeMutes, scheduleSave } = require('../utils/state');
+const { getTheme } = require('../utils/display');
 
 function setupEvents(client) {
   // Watch for boosts and unauthorized unmutes
@@ -50,11 +51,15 @@ function setupEvents(client) {
         const executor = await newMember.guild.members.fetch(entry.executor.id).catch(() => null);
         if (!executor) return;
 
+        const settings = getSettings(newMember.guild.id);
+
+        // Allow admins and bot manager role
         if (executor.permissions.has(PermissionFlagsBits.Administrator)) return;
+        if (settings.managerRoleId && executor.roles.cache.has(settings.managerRoleId)) return;
 
         getStats(newMember.guild.id).unauthorizedUnmutes++;
         scheduleSave(newMember.guild.id);
-        const settings = getSettings(newMember.guild.id);
+        const theme = getTheme(settings.theme);
         const remainingTime = trackedMute.expiresAt - Date.now();
 
         await newMember.timeout(remainingTime, 'Vote mute restored — unauthorized unmute');
@@ -64,10 +69,13 @@ function setupEvents(client) {
 
         const channel = await newMember.guild.channels.fetch(trackedMute.channelId).catch(() => null);
         if (channel) {
+          const desc = theme.unauthorizedUnmuteDescription
+            .replace('{executor}', executor.displayName)
+            .replace('{target}', newMember.displayName);
           const embed = new EmbedBuilder()
             .setColor(0xff0000)
-            .setTitle('Unauthorized Unmute Detected!')
-            .setDescription(`**${executor.displayName}** tried to remove **${newMember.displayName}**'s vote mute without admin permissions.`)
+            .setTitle(theme.unauthorizedUnmuteTitle)
+            .setDescription(desc)
             .addFields(
               { name: 'Action Taken', value: `${executor.displayName} has been muted for ${settings.muteDuration} minutes.\n${newMember.displayName}'s mute has been restored.` },
             )

@@ -1,0 +1,30 @@
+{
+  "voteTitle": "The Herd Deliberates",
+  "voteDescription": "*And here we observe **{initiator}**, raising the alarm call against **{target}**. The herd must now decide: does this one stay, or are they cast out into the wilderness?*",
+  "voteButton": "Exile from the Pack ({votes}/{needed})",
+  "cancelButton": "Spare the Creature",
+  "votePassed": "Natural Selection",
+  "votePassedDescription": "*And so it is. The herd has spoken. **{target}** is cast out into the silent wilderness for **{duration} minutes**. Nature is beautiful, and yet... utterly ruthless.*",
+  "voteExpired": "The Herd Moves On",
+  "voteExpiredDescription": "*Fascinating. The herd chose mercy today. Only {votes}/{needed} members voted to exile **{target}**. They live to chat another day. For now.*",
+  "voteCancelled": "False Alarm",
+  "userMutedTitle": "Exiled from the Pack",
+  "userMutedDescription": "*With a final, mournful glance, **{target}** is separated from the group. They will wander in silence for **{duration} minutes**. Such is the way of the natural world.*",
+  "dmTitle": "You've been exiled from the pack.",
+  "dmDescription": "*The herd of **{server}** has voted. You have been separated from the group for **{duration} minutes**. In nature, silence is not punishment — it is reflection.*",
+  "dmVotersLabel": "The Herd Members Who Voted",
+  "dmTip": "In a remarkable display of adaptive behavior, server boosters develop a temporary immunity to exile. Lasting approximately one hour. Evolution works in mysterious ways.",
+  "unauthorizedUnmuteTitle": "Interference with Natural Order!",
+  "unauthorizedUnmuteDescription": "*Most unusual. **{executor}** has attempted to reintroduce **{target}** to the pack prematurely. The ecosystem does not take kindly to such interference.*",
+  "selfMuteReactions": [
+    "*Remarkable. The creature has voted for its own exile. In all my years of observation, I have never witnessed such behavior.*",
+    "*And here we see a rare phenomenon — self-imposed isolation. Scientists remain baffled.*",
+    "*The specimen appears to be... volunteering to leave? David, are you seeing this?*",
+    "*Extraordinary. This one has chosen solitude. Perhaps it knows something the rest of the herd does not.*",
+    "*In a stunning display of self-awareness rarely seen in the wild, the creature silences itself.*"
+  ],
+  "progressLabel": "Herd Consensus",
+  "votersLabel": "Herd Members",
+  "activeLabel": "Pack Size",
+  "footerText": "The herd awaits your decision"
+}
