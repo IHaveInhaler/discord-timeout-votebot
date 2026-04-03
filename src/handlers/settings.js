@@ -510,6 +510,32 @@ async function handleSetupButton(interaction) {
       .setTitle('\uD83C\uDF89 All done!')
       .setDescription('Your bot is ready. Go mute someone with `/votemute @user`!');
     return interaction.update({ embeds: [embed], components: [] });
+  } else if (id.startsWith('vm_boost_') || id.startsWith('vm_toggle_')) {
+    // All ON/OFF confirm buttons from /vm configure
+    if (id === 'vm_boost_on') settings.boostImmunity = true;
+    else if (id === 'vm_boost_off') settings.boostImmunity = false;
+    else if (id === 'vm_toggle_reminders_on') { settings.remindersEnabled = true; if (settings.watchChannelId) reminderChannels.set(interaction.guild.id, settings.watchChannelId); }
+    else if (id === 'vm_toggle_reminders_off') settings.remindersEnabled = false;
+    else if (id === 'vm_toggle_callouts_on') { settings.calloutsEnabled = true; if (settings.watchChannelId) reminderChannels.set(interaction.guild.id, settings.watchChannelId); }
+    else if (id === 'vm_toggle_callouts_off') settings.calloutsEnabled = false;
+    else if (id === 'vm_toggle_selfmute_on') settings.allowSelfMute = true;
+    else if (id === 'vm_toggle_selfmute_off') settings.allowSelfMute = false;
+
+    guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
+
+    const labels = {
+      vm_boost_on: 'Boost Immunity', vm_boost_off: 'Boost Immunity',
+      vm_toggle_reminders_on: 'Periodic Reminders', vm_toggle_reminders_off: 'Periodic Reminders',
+      vm_toggle_callouts_on: 'Random Callouts', vm_toggle_callouts_off: 'Random Callouts',
+      vm_toggle_selfmute_on: 'Allow Self-Mute', vm_toggle_selfmute_off: 'Allow Self-Mute',
+    };
+    const isOn = id.endsWith('_on');
+    const embed = new EmbedBuilder()
+      .setColor(isOn ? 0x00ff00 : 0xff4444)
+      .setTitle('Setting Updated')
+      .setDescription(`**${labels[id]}** is now **${isOn ? 'ON' : 'OFF'}**`);
+    return interaction.update({ embeds: [embed], components: [] });
   }
 
   guildSettings.set(interaction.guild.id, settings);
@@ -710,34 +736,28 @@ async function handleSelectMenu(interaction) {
 
   if (selected === 'reminders') {
     const settings = getSettings(interaction.guild.id);
-    settings.remindersEnabled = !settings.remindersEnabled;
-    guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
-
-    if (settings.remindersEnabled) {
-      reminderChannels.set(interaction.guild.id, interaction.channel.id);
-    }
-
     const embed = new EmbedBuilder()
-      .setColor(0x00ff00)
-      .setTitle('Setting Updated')
-      .setDescription(`**Periodic Reminders** are now **${settings.remindersEnabled ? 'ON' : 'OFF'}**${settings.remindersEnabled ? '\nReminders will be sent to this channel every 2 hours.' : ''}`);
-
-    return interaction.reply({ embeds: [embed], flags: 64 });
+      .setColor(0x5865f2)
+      .setTitle('Periodic Reminders')
+      .setDescription(`Currently: **${settings.remindersEnabled ? 'ON' : 'OFF'}**\n\nSend funny vote mute tips in chat every 2 hours?`);
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_toggle_reminders_on').setLabel('ON').setStyle(settings.remindersEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('vm_toggle_reminders_off').setLabel('OFF').setStyle(!settings.remindersEnabled ? ButtonStyle.Danger : ButtonStyle.Secondary),
+    );
+    return interaction.reply({ embeds: [embed], components: [row], flags: 64 });
   }
 
   if (selected === 'allow_self_mute') {
     const settings = getSettings(interaction.guild.id);
-    settings.allowSelfMute = !settings.allowSelfMute;
-    guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
-
     const embed = new EmbedBuilder()
-      .setColor(0x00ff00)
-      .setTitle('Setting Updated')
-      .setDescription(`**Allow Self-Mute** is now **${settings.allowSelfMute ? 'ON' : 'OFF'}**${settings.allowSelfMute ? '\nUsers can initiate vote mutes on themselves. Chaos.' : ''}`);
-
-    return interaction.reply({ embeds: [embed], flags: 64 });
+      .setColor(0x5865f2)
+      .setTitle('Allow Self-Mute')
+      .setDescription(`Currently: **${settings.allowSelfMute ? 'ON' : 'OFF'}**\n\nLet users initiate vote mutes on themselves? (The bot will roast them for it.)`);
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_toggle_selfmute_on').setLabel('ON').setStyle(settings.allowSelfMute ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('vm_toggle_selfmute_off').setLabel('OFF').setStyle(!settings.allowSelfMute ? ButtonStyle.Danger : ButtonStyle.Secondary),
+    );
+    return interaction.reply({ embeds: [embed], components: [row], flags: 64 });
   }
 
   if (selected === 'theme_info') {
@@ -757,33 +777,31 @@ async function handleSelectMenu(interaction) {
 
   if (selected === 'boost_immunity') {
     const settings = getSettings(interaction.guild.id);
-    settings.boostImmunity = !settings.boostImmunity;
-    guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
 
     const embed = new EmbedBuilder()
-      .setColor(0x00ff00)
-      .setTitle('Setting Updated')
-      .setDescription(`**Boost Immunity** is now **${settings.boostImmunity ? 'ON' : 'OFF'}**${settings.boostImmunity ? ` (${settings.boostImmunityDuration} min)` : ''}`);
-    return interaction.reply({ embeds: [embed], flags: 64 });
+      .setColor(0x5865f2)
+      .setTitle('Boost Immunity')
+      .setDescription(`Currently: **${settings.boostImmunity ? 'ON' : 'OFF'}**${settings.boostImmunity ? ` (${settings.boostImmunityDuration} min)` : ''}\n\nShould server boosters get temporary immunity from vote mutes?`);
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_boost_on').setLabel('ON').setStyle(settings.boostImmunity ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('vm_boost_off').setLabel('OFF').setStyle(!settings.boostImmunity ? ButtonStyle.Danger : ButtonStyle.Secondary),
+    );
+
+    return interaction.reply({ embeds: [embed], components: [row], flags: 64 });
   }
 
   if (selected === 'callouts') {
     const settings = getSettings(interaction.guild.id);
-    settings.calloutsEnabled = !settings.calloutsEnabled;
-    guildSettings.set(interaction.guild.id, settings);
-    scheduleSave(interaction.guild.id);
-
-    if (settings.calloutsEnabled) {
-      reminderChannels.set(interaction.guild.id, interaction.channel.id);
-    }
-
     const embed = new EmbedBuilder()
-      .setColor(0x00ff00)
-      .setTitle('Setting Updated')
-      .setDescription(`**Random Callouts** are now **${settings.calloutsEnabled ? 'ON' : 'OFF'}**${settings.calloutsEnabled ? '\nThe bot will randomly call out users based on their mute stats every ~45 minutes.' : ''}`);
-
-    return interaction.reply({ embeds: [embed], flags: 64 });
+      .setColor(0x5865f2)
+      .setTitle('Random Callouts')
+      .setDescription(`Currently: **${settings.calloutsEnabled ? 'ON' : 'OFF'}**\n\nBot randomly roasts users based on their mute stats every ~45 minutes.`);
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_toggle_callouts_on').setLabel('ON').setStyle(settings.calloutsEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('vm_toggle_callouts_off').setLabel('OFF').setStyle(!settings.calloutsEnabled ? ButtonStyle.Danger : ButtonStyle.Secondary),
+    );
+    return interaction.reply({ embeds: [embed], components: [row], flags: 64 });
   }
 
   if (selected === 'immune_roles') {

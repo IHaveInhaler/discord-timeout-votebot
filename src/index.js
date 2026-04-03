@@ -37,6 +37,8 @@ client.on('interactionCreate', async (interaction) => {
         await handleDashboardButton(interaction);
       } else if (interaction.customId.startsWith('vm_setup_')) {
         await handleSetupButton(interaction);
+      } else if (interaction.customId.startsWith('vm_boost_') || interaction.customId.startsWith('vm_toggle_')) {
+        await handleSetupButton(interaction);
       } else {
         await handleButton(interaction, client);
       }
