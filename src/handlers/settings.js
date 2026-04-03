@@ -380,7 +380,7 @@ function buildSetupPage(pageName, guild, settings, pages) {
         { name: '\uD83D\uDD52 Activity Window', value: `**${settings.activityWindow} min** lookback\n*Default: 5 min*`, inline: true },
         { name: '\u2139\uFE0F', value: 'Use `/vm configure` to change these values anytime.' },
       )
-      .setFooter({ text: `Step ${pageNum} of ${totalPages}` });
+      .setFooter({ text: `Step ${pageNum} of ${totalPages} \u2022 Defaults work fine \u2014 tweak later with /vm configure` });
 
     const navRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`vm_setup_goto_${prevPage}`).setLabel('\u2190 Back').setStyle(ButtonStyle.Secondary),
@@ -401,7 +401,7 @@ function buildSetupPage(pageName, guild, settings, pages) {
         { name: `\uD83C\uDFAD Theme: ${settings.theme}`, value: 'Use `/vm theme` to change', inline: true },
         { name: `\uD83E\uDD21 Allow Self-Mute ${settings.allowSelfMute ? '\u2705' : '\u274C'}`, value: 'Let users vote mute themselves (bot roasts them for it).', inline: true },
       )
-      .setFooter({ text: `Step ${pageNum} of ${totalPages}` });
+      .setFooter({ text: `Step ${pageNum} of ${totalPages} \u2022 Optional \u2014 toggle these anytime with /vm configure` });
 
     const toggleRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('vm_setup_toggle_callouts').setLabel(`Callouts: ${settings.calloutsEnabled ? 'ON' : 'OFF'}`).setStyle(settings.calloutsEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
@@ -1001,7 +1001,7 @@ async function handleTheme(interaction) {
     .setColor(0x5865f2)
     .setTitle('\uD83C\uDFAD Theme Selector')
     .setDescription(`Current theme: **${settings.theme}**\n\nPick a theme below to change how the bot talks. Themes affect vote embeds, DMs, announcements, and self-mute reactions.`)
-    .setTimestamp();
+    .setFooter({ text: 'Themes do not affect /vm setup or /vm configure' });
 
   const selectMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
