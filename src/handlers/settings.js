@@ -520,6 +520,8 @@ async function handleSetupButton(interaction) {
     else if (id === 'vm_toggle_callouts_off') settings.calloutsEnabled = false;
     else if (id === 'vm_toggle_selfmute_on') settings.allowSelfMute = true;
     else if (id === 'vm_toggle_selfmute_off') settings.allowSelfMute = false;
+    else if (id === 'vm_toggle_exponential_on') settings.exponentialMuting = true;
+    else if (id === 'vm_toggle_exponential_off') settings.exponentialMuting = false;
 
     guildSettings.set(interaction.guild.id, settings);
     scheduleSave(interaction.guild.id, true);
@@ -529,6 +531,7 @@ async function handleSetupButton(interaction) {
       vm_toggle_reminders_on: 'Periodic Reminders', vm_toggle_reminders_off: 'Periodic Reminders',
       vm_toggle_callouts_on: 'Random Callouts', vm_toggle_callouts_off: 'Random Callouts',
       vm_toggle_selfmute_on: 'Allow Self-Mute', vm_toggle_selfmute_off: 'Allow Self-Mute',
+      vm_toggle_exponential_on: 'Exponential Muting', vm_toggle_exponential_off: 'Exponential Muting',
     };
     const isOn = id.endsWith('_on');
     const embed = new EmbedBuilder()
@@ -645,6 +648,7 @@ async function handleConfigure(interaction) {
         { label: 'Manager Role', description: `Currently: ${settings.managerRoleId ? 'Set' : 'None'}`, value: 'manager_role' },
         { label: 'Boost Immunity', description: `Currently: ${settings.boostImmunity ? settings.boostImmunityDuration + ' min' : 'OFF'}`, value: 'boost_immunity' },
         { label: 'Boost Immunity Duration', description: `Currently: ${settings.boostImmunityDuration} min`, value: 'boost_duration' },
+        { label: 'Exponential Muting', description: `Currently: ${settings.exponentialMuting ? 'ON (why??)' : 'OFF'}`, value: 'exponential_muting' },
       ),
   );
 
@@ -773,6 +777,27 @@ async function handleSelectMenu(interaction) {
         .setMaxValues(1),
     );
     return interaction.reply({ content: 'Select the bot manager role:', components: [roleSelect], flags: 64 });
+  }
+
+  if (selected === 'exponential_muting') {
+    const settings = getSettings(interaction.guild.id);
+    const embed = new EmbedBuilder()
+      .setColor(settings.exponentialMuting ? 0xff0000 : 0xffa500)
+      .setTitle('Exponential Muting')
+      .setDescription([
+        `Currently: **${settings.exponentialMuting ? 'ON' : 'OFF'}**`,
+        '',
+        'When enabled, if someone gets muted again within 30 minutes, their mute duration **doubles** each time. Capped at 2 hours.',
+        '',
+        `Example: ${settings.muteDuration}min \u2192 ${Math.min(settings.muteDuration * 2, 120)}min \u2192 ${Math.min(settings.muteDuration * 4, 120)}min \u2192 ...`,
+        '',
+        '**This is a terrible idea and you should probably not turn this on.** People will get mad. You have been warned.',
+      ].join('\n'));
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vm_toggle_exponential_on').setLabel('ON (I accept the consequences)').setStyle(settings.exponentialMuting ? ButtonStyle.Success : ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('vm_toggle_exponential_off').setLabel('OFF (sane choice)').setStyle(!settings.exponentialMuting ? ButtonStyle.Success : ButtonStyle.Secondary),
+    );
+    return interaction.reply({ embeds: [embed], components: [row], flags: 64 });
   }
 
   if (selected === 'boost_immunity') {

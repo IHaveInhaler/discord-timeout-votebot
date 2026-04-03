@@ -28,6 +28,7 @@ const DEFAULT_SETTINGS = {
   auditChannelId: null,        // channel for short audit logs (separate from watch channel)
   boostImmunity: true,         // whether boosts grant immunity
   boostImmunityDuration: 60,   // minutes of immunity from boosting
+  exponentialMuting: false,    // double mute duration on repeat mutes (capped at 120 min)
 };
 
 const initiatorCooldowns = new Collection();

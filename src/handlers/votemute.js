@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
-const { getSettings, getActiveChatters, activeVotes, boosterImmunity, voteCooldowns, activeMutes, reminderChannels, initiatorCooldowns, recordMute, recordFailedVote } = require('../utils/state');
+const { getSettings, getStats, getActiveChatters, activeVotes, boosterImmunity, voteCooldowns, activeMutes, reminderChannels, initiatorCooldowns, recordMute, recordFailedVote } = require('../utils/state');
 const { getTheme, getSelfMuteReactions } = require('../utils/display');
 const { auditLog } = require('../utils/audit');
 
@@ -42,7 +42,24 @@ async function executeMute(guild, targetId, channel, votes, settings) {
   if (!member) return;
 
   const theme = getTheme(settings.theme);
-  const muteDuration = settings.muteDuration * 60 * 1000;
+
+  // Calculate mute duration (with exponential scaling if enabled)
+  let muteMins = settings.muteDuration;
+  let multiplier = 1;
+  if (settings.exponentialMuting) {
+    const stats = getStats(guild.id);
+    const userStats = stats.users.get(targetId);
+    if (userStats && userStats.lastMuted) {
+      const timeSinceLastMute = Date.now() - userStats.lastMuted;
+      if (timeSinceLastMute < 30 * 60 * 1000) {
+        multiplier = Math.pow(2, userStats.muteStreak);
+        muteMins = Math.min(settings.muteDuration * multiplier, 120);
+      } else {
+        userStats.muteStreak = 0;
+      }
+    }
+  }
+  const muteDuration = muteMins * 60 * 1000;
 
   // Build voter list with (really?) for self-voters
   const voterMentions = [...votes].map(id => {
@@ -56,10 +73,11 @@ async function executeMute(guild, targetId, channel, votes, settings) {
     reminderChannels.set(guild.id, channel.id);
     recordMute(guild.id, targetId, votes);
 
+    const durationDisplay = multiplier > 1 ? `${muteMins} min (${multiplier}x)` : `${muteMins} min`;
     auditLog(_client, guild.id, {
       action: 'MUTED',
       target: targetId,
-      details: `${votes.size} votes \u2022 ${settings.muteDuration} min`,
+      details: `${votes.size} votes \u2022 ${durationDisplay}`,
       color: 0xff4444,
     });
 
@@ -75,7 +93,7 @@ async function executeMute(guild, targetId, channel, votes, settings) {
       const dmEmbed = new EmbedBuilder()
         .setColor(0xff4444)
         .setTitle(theme.dmTitle)
-        .setDescription(t(theme.dmDescription, { server: guild.name, duration: settings.muteDuration, target: member.displayName }))
+        .setDescription(t(theme.dmDescription, { server: guild.name, duration: muteMins, target: member.displayName }))
         .addFields(
           { name: theme.dmVotersLabel, value: voterMentions },
           { name: 'Tip', value: theme.dmTip },
@@ -87,7 +105,7 @@ async function executeMute(guild, targetId, channel, votes, settings) {
     const summaryEmbed = new EmbedBuilder()
       .setColor(0xff4444)
       .setTitle(theme.userMutedTitle)
-      .setDescription(t(theme.userMutedDescription, { target: member.displayName, duration: settings.muteDuration }))
+      .setDescription(t(theme.userMutedDescription, { target: member.displayName, duration: muteMins }))
       .addFields({ name: theme.dmVotersLabel, value: voterMentions })
       .setTimestamp();
 

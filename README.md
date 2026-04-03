@@ -206,6 +206,7 @@ All configurable via `/vm configure`. Toggle settings show current state and giv
 | Boost Immunity Duration | 60 min | How long boost immunity lasts |
 | Periodic Reminders | OFF | Fun tips posted every 2 hours |
 | Random Callouts | OFF | Roasts users based on their mute stats every ~45 min |
+| Exponential Muting | OFF | Doubles mute duration on repeat mutes within 30 min (capped at 2hrs). This is a terrible idea. |
 
 ## Audit Log Channel
 
