@@ -1,5 +1,5 @@
 const { EmbedBuilder, PermissionFlagsBits, AuditLogEvent } = require('discord.js');
-const { getSettings, getStats, boosterImmunity, activeMutes } = require('../utils/state');
+const { getSettings, getStats, boosterImmunity, activeMutes, scheduleSave } = require('../utils/state');
 
 function setupEvents(client) {
   // Watch for boosts and unauthorized unmutes
@@ -53,6 +53,7 @@ function setupEvents(client) {
         if (executor.permissions.has(PermissionFlagsBits.Administrator)) return;
 
         getStats(newMember.guild.id).unauthorizedUnmutes++;
+        scheduleSave(newMember.guild.id);
         const settings = getSettings(newMember.guild.id);
         const remainingTime = trackedMute.expiresAt - Date.now();
 

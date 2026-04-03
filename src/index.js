@@ -70,7 +70,7 @@ client.once('ready', () => {
     let totalChatters = 0;
     for (const [guildId] of recentChatters) {
       const settings = getSettings(guildId);
-      totalChatters += getActiveChatters(guildId, settings.activityWindow).length;
+      totalChatters += getActiveChatters(guildId, settings.activityWindow, settings.minMessages).length;
     }
     const message = getActivityMessage(totalChatters);
     client.user.setActivity(message, { type: ActivityType.Custom });

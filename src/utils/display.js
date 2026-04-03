@@ -33,12 +33,6 @@ function buildBarChart(data, labels, maxWidth = 14) {
   return lines.join('\n');
 }
 
-function buildSparkline(data) {
-  const chars = ['\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
-  const max = Math.max(...data, 1);
-  return data.map(v => chars[Math.min(Math.round((v / max) * 7), 7)]).join('');
-}
-
 const reminderTips = [
   'Did you know? You can vote to mute annoying people with `/votemute`! Democracy has never been this petty.',
   'Fun fact: Boosting the server after getting muted gives you 1 hour of immunity. Pay-to-win is alive and well.',
@@ -82,7 +76,6 @@ const calloutTemplates = {
 module.exports = {
   getActivityMessage,
   buildBarChart,
-  buildSparkline,
   reminderTips,
   calloutTemplates,
 };

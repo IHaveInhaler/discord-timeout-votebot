@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, RoleSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } = require('discord.js');
-const { getSettings, guildSettings, getStats, getActiveChatters, activeVotes, activeMutes, reminderChannels } = require('../utils/state');
+const { getSettings, guildSettings, getStats, getActiveChatters, activeVotes, activeMutes, reminderChannels, scheduleSave } = require('../utils/state');
 const { buildBarChart, getActivityMessage } = require('../utils/display');
 
 
@@ -25,7 +25,7 @@ function buildNavButtons(currentPage) {
 
 function buildDashboardPages(guildId, settings) {
   const stats = getStats(guildId);
-  const activeChatters = getActiveChatters(guildId, settings.activityWindow);
+  const activeChatters = getActiveChatters(guildId, settings.activityWindow, settings.minMessages);
   const minVotes = settings.threshold > 0.5 ? 2 : 1;
   const votesNeeded = Math.max(minVotes, Math.ceil(activeChatters.length * settings.threshold));
 
@@ -331,6 +331,7 @@ async function handleSetupButton(interaction) {
     const { DEFAULT_SETTINGS } = require('../utils/state');
     const settings = { ...DEFAULT_SETTINGS };
     guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
 
     const embed = new EmbedBuilder()
       .setColor(0x00ff00)
@@ -357,6 +358,7 @@ async function handleSetupChannel(interaction) {
   const settings = getSettings(interaction.guild.id);
   settings.botChannelId = channelId;
   guildSettings.set(interaction.guild.id, settings);
+  scheduleSave(interaction.guild.id);
   reminderChannels.set(interaction.guild.id, channelId);
 
   const embed = new EmbedBuilder()
@@ -427,6 +429,8 @@ async function handleConfigure(interaction) {
         { label: 'Vote Button Style', description: `Currently: ${settings.voteStyle === 'yay_nay' ? 'Yay/Nay' : 'Vote to Mute'}`, value: 'vote_style' },
         { label: 'Max Active Votes', description: `Currently: ${settings.maxActiveVotes}`, value: 'max_active_votes' },
         { label: 'Initiator Cooldown', description: `Currently: ${settings.initiatorCooldown ? settings.initiatorCooldown + 's' : 'OFF'}`, value: 'initiator_cooldown' },
+        { label: 'Allow Self-Mute', description: `Currently: ${settings.allowSelfMute ? 'ON' : 'OFF'}`, value: 'allow_self_mute' },
+        { label: 'Min Messages for Active', description: `Currently: ${settings.minMessages}`, value: 'min_messages' },
       ),
   );
 
@@ -442,6 +446,7 @@ async function handleSelectMenu(interaction) {
     const settings = getSettings(interaction.guild.id);
     settings.immuneRoles = interaction.values;
     guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
 
     const rolesDisplay = settings.immuneRoles.length
       ? settings.immuneRoles.map(id => `<@&${id}>`).join(', ')
@@ -474,6 +479,7 @@ async function handleSelectMenu(interaction) {
     const settings = getSettings(interaction.guild.id);
     settings.remindersEnabled = !settings.remindersEnabled;
     guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
 
     if (settings.remindersEnabled) {
       reminderChannels.set(interaction.guild.id, interaction.channel.id);
@@ -487,10 +493,25 @@ async function handleSelectMenu(interaction) {
     return interaction.reply({ embeds: [embed], flags: 64 });
   }
 
+  if (selected === 'allow_self_mute') {
+    const settings = getSettings(interaction.guild.id);
+    settings.allowSelfMute = !settings.allowSelfMute;
+    guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x00ff00)
+      .setTitle('Setting Updated')
+      .setDescription(`**Allow Self-Mute** is now **${settings.allowSelfMute ? 'ON' : 'OFF'}**${settings.allowSelfMute ? '\nUsers can initiate vote mutes on themselves. Chaos.' : ''}`);
+
+    return interaction.reply({ embeds: [embed], flags: 64 });
+  }
+
   if (selected === 'vote_style') {
     const settings = getSettings(interaction.guild.id);
     settings.voteStyle = settings.voteStyle === 'yay_nay' ? 'default' : 'yay_nay';
     guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
 
     const styleName = settings.voteStyle === 'yay_nay' ? 'Yay / Nay' : 'Vote to Mute';
     const embed = new EmbedBuilder()
@@ -505,6 +526,7 @@ async function handleSelectMenu(interaction) {
     const settings = getSettings(interaction.guild.id);
     settings.calloutsEnabled = !settings.calloutsEnabled;
     guildSettings.set(interaction.guild.id, settings);
+    scheduleSave(interaction.guild.id);
 
     if (settings.calloutsEnabled) {
       reminderChannels.set(interaction.guild.id, interaction.channel.id);
@@ -537,6 +559,7 @@ async function handleSelectMenu(interaction) {
     activity_window: { title: 'Activity Window (minutes)', placeholder: 'Enter minutes (1-30)', min: '1', max: '30' },
     max_active_votes: { title: 'Max Active Votes', placeholder: 'Enter number (1-10)', min: '1', max: '10' },
     initiator_cooldown: { title: 'Initiator Cooldown (seconds)', placeholder: 'Enter seconds (0=off, max 600)', min: '0', max: '600' },
+    min_messages: { title: 'Min Messages for Active', placeholder: 'Enter number (1-20)', min: '1', max: '20' },
   };
 
   const info = labels[selected];
@@ -577,6 +600,7 @@ async function handleModal(interaction) {
     activity_window: { min: 1, max: 30 },
     max_active_votes: { min: 1, max: 10 },
     initiator_cooldown: { min: 0, max: 600 },
+    min_messages: { min: 1, max: 20 },
   };
 
   const { min, max } = limits[setting];
@@ -593,6 +617,7 @@ async function handleModal(interaction) {
     activity_window: 'Activity Window',
     max_active_votes: 'Max Active Votes',
     initiator_cooldown: 'Initiator Cooldown',
+    min_messages: 'Min Messages for Active',
   };
 
   let displayValue;
@@ -614,6 +639,9 @@ async function handleModal(interaction) {
   } else if (setting === 'initiator_cooldown') {
     settings.initiatorCooldown = rawValue;
     displayValue = rawValue === 0 ? 'OFF' : `${rawValue}s`;
+  } else if (setting === 'min_messages') {
+    settings.minMessages = rawValue;
+    displayValue = `${rawValue}`;
   }
 
   guildSettings.set(interaction.guild.id, settings);

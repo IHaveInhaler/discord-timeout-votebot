@@ -1,27 +1,13 @@
 const { Collection } = require('discord.js');
+const { saveGuildData, loadAllGuilds } = require('./storage');
 
-// Per-guild settings
 const guildSettings = new Collection();
-
-// Track recent chatters per guild: Map<guildId, Map<userId, timestamp>>
 const recentChatters = new Collection();
-
-// Active vote sessions
 const activeVotes = new Collection();
-
-// Booster immunity: Map<key, expiresAt>
 const boosterImmunity = new Collection();
-
-// Cooldowns for being targeted
 const voteCooldowns = new Collection();
-
-// Track active vote-muted users for unauthorized unmute detection
 const activeMutes = new Collection();
-
-// Mute statistics per guild
 const muteStats = new Collection();
-
-// Track reminder channels per guild
 const reminderChannels = new Collection();
 
 const DEFAULT_SETTINGS = {
@@ -32,14 +18,44 @@ const DEFAULT_SETTINGS = {
   immuneRoles: [],
   remindersEnabled: false,
   calloutsEnabled: false,
-  voteStyle: 'default',       // 'default' = "Vote to Mute", 'yay_nay' = "Yay / Nay"
-  maxActiveVotes: 1,          // max concurrent votes in a guild
-  initiatorCooldown: 0,       // seconds before a user can start another vote (0 = off)
-  botChannelId: null,         // channel where bot posts announcements/reminders (null = any)
+  voteStyle: 'default',
+  allowSelfMute: true,
+  maxActiveVotes: 1,
+  initiatorCooldown: 0,
+  botChannelId: null,
+  minMessages: 1,              // min messages to count as active chatter
 };
 
-// Initiator cooldowns: Map<`${guildId}-${userId}`, expiresAt>
 const initiatorCooldowns = new Collection();
+
+const _pendingSaves = new Set();
+
+function scheduleSave(guildId) {
+  _pendingSaves.add(guildId);
+}
+
+function saveGuild(guildId) {
+  const settings = guildSettings.get(guildId);
+  const stats = muteStats.get(guildId);
+  if (settings || stats) {
+    saveGuildData(guildId, settings || { ...DEFAULT_SETTINGS }, stats || getStats(guildId));
+  }
+}
+
+// Restore persisted data on startup
+const allData = loadAllGuilds();
+for (const [guildId, { settings, stats }] of allData) {
+  if (settings) guildSettings.set(guildId, { ...DEFAULT_SETTINGS, ...settings });
+  if (stats) muteStats.set(guildId, stats);
+}
+
+// Flush pending saves every 60 seconds
+setInterval(() => {
+  for (const guildId of _pendingSaves) {
+    saveGuild(guildId);
+  }
+  _pendingSaves.clear();
+}, 60_000);
 
 function getSettings(guildId) {
   return guildSettings.get(guildId) || { ...DEFAULT_SETTINGS };
@@ -91,30 +107,40 @@ function recordMute(guildId, targetId, voterIds) {
     voterStats.timesVoted++;
     voterStats.votedAgainst.set(targetId, (voterStats.votedAgainst.get(targetId) || 0) + 1);
   }
+
+  scheduleSave(guildId);
 }
 
 function recordFailedVote(guildId) {
   const stats = getStats(guildId);
   stats.failedVotes++;
+  scheduleSave(guildId);
 }
 
 function trackChatter(guildId, userId) {
   if (!recentChatters.has(guildId)) {
     recentChatters.set(guildId, new Map());
   }
-  recentChatters.get(guildId).set(userId, Date.now());
+  const chatters = recentChatters.get(guildId);
+  const existing = chatters.get(userId);
+  if (existing) {
+    existing.count++;
+    existing.lastMessage = Date.now();
+  } else {
+    chatters.set(userId, { count: 1, firstMessage: Date.now(), lastMessage: Date.now() });
+  }
 }
 
-function getActiveChatters(guildId, windowMinutes) {
+function getActiveChatters(guildId, windowMinutes, minMessages = 1) {
   const chatters = recentChatters.get(guildId);
   if (!chatters) return [];
 
   const cutoff = Date.now() - windowMinutes * 60 * 1000;
   const active = [];
-  for (const [userId, timestamp] of chatters) {
-    if (timestamp >= cutoff) {
+  for (const [userId, data] of chatters) {
+    if (data.lastMessage >= cutoff && data.count >= minMessages) {
       active.push(userId);
-    } else {
+    } else if (data.lastMessage < cutoff) {
       chatters.delete(userId);
     }
   }
@@ -138,4 +164,5 @@ module.exports = {
   recordFailedVote,
   trackChatter,
   getActiveChatters,
+  scheduleSave,
 };

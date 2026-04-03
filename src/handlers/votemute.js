@@ -11,6 +11,12 @@ const selfMuteReactions = [
   'Most self-aware user in this server.',
 ];
 
+function buildProgressBar(current, total, barLength = 16) {
+  const filled = Math.round((current / total) * barLength);
+  const empty = barLength - filled;
+  return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${current}/${total}`;
+}
+
 function getVoteLabel(settings, votes, votesNeeded) {
   if (settings.voteStyle === 'yay_nay') {
     return `Yay! Mute em (${votes}/${votesNeeded})`;
@@ -35,6 +41,7 @@ function buildVoteEmbed(target, initiator, votes, votesNeeded, voteDuration, act
       { name: 'Votes', value: `${votes.size}/${votesNeeded}`, inline: true },
       { name: 'Time Remaining', value: `${voteDuration}s`, inline: true },
       { name: 'Active Chatters', value: `${activeChattersCount}`, inline: true },
+      { name: 'Progress', value: buildProgressBar(votes.size, votesNeeded) },
       { name: 'Voters', value: voterList || 'None' },
     )
     .setFooter({ text: 'Click the button below to cast your vote' })
@@ -99,6 +106,10 @@ async function handleVoteMute(interaction) {
 
   const isSelfMute = target.id === interaction.user.id;
 
+  if (isSelfMute && !settings.allowSelfMute) {
+    return interaction.reply({ content: 'Self-muting is disabled on this server.', flags: 64 });
+  }
+
   const targetMember = await guild.members.fetch(target.id).catch(() => null);
   if (!targetMember) {
     return interaction.reply({ content: 'That user is not in this server.', flags: 64 });
@@ -143,7 +154,7 @@ async function handleVoteMute(interaction) {
     return interaction.reply({ content: `Maximum active votes reached (${settings.maxActiveVotes}). Wait for a current vote to finish.`, flags: 64 });
   }
 
-  const activeChatters = getActiveChatters(guild.id, settings.activityWindow);
+  const activeChatters = getActiveChatters(guild.id, settings.activityWindow, settings.minMessages);
   const minVotes = settings.threshold > 0.5 ? 2 : 1;
   const votesNeeded = Math.max(minVotes, Math.ceil(activeChatters.length * settings.threshold));
   const votes = new Set([interaction.user.id]);
@@ -294,6 +305,7 @@ async function handleButton(interaction, client) {
         .addFields(
           { name: 'Votes', value: `${vote.votes.size}/${vote.votesNeeded}`, inline: true },
           { name: 'Time Remaining', value: `~${remaining}s`, inline: true },
+          { name: 'Progress', value: buildProgressBar(vote.votes.size, vote.votesNeeded) },
           { name: 'Voters', value: voterList },
         )
         .setFooter({ text: 'Click the button below to cast your vote' })
