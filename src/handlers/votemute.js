@@ -12,6 +12,24 @@ function buildProgressBar(current, total, barLength = 16) {
   return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${current}/${total}`;
 }
 
+function getEffectiveMuteDuration(guild, targetId, settings) {
+  let muteMins = settings.muteDuration;
+  if (settings.exponentialMuting) {
+    const stats = getStats(guild.id);
+    const userStats = stats.users.get(targetId);
+    if (userStats && userStats.lastMuted) {
+      const timeSinceLastMute = Date.now() - userStats.lastMuted;
+      if (timeSinceLastMute < 30 * 60 * 1000) {
+        const multiplier = Math.pow(2, userStats.muteStreak);
+        muteMins = Math.min(settings.muteDuration * multiplier, 120);
+      } else {
+        userStats.muteStreak = 0;
+      }
+    }
+  }
+  return muteMins;
+}
+
 function t(template, vars) {
   let result = template;
   for (const [key, val] of Object.entries(vars)) {
@@ -42,23 +60,7 @@ async function executeMute(guild, targetId, channel, votes, settings) {
   if (!member) return;
 
   const theme = getTheme(settings.theme);
-
-  // Calculate mute duration (with exponential scaling if enabled)
-  let muteMins = settings.muteDuration;
-  let multiplier = 1;
-  if (settings.exponentialMuting) {
-    const stats = getStats(guild.id);
-    const userStats = stats.users.get(targetId);
-    if (userStats && userStats.lastMuted) {
-      const timeSinceLastMute = Date.now() - userStats.lastMuted;
-      if (timeSinceLastMute < 30 * 60 * 1000) {
-        multiplier = Math.pow(2, userStats.muteStreak);
-        muteMins = Math.min(settings.muteDuration * multiplier, 120);
-      } else {
-        userStats.muteStreak = 0;
-      }
-    }
-  }
+  const muteMins = getEffectiveMuteDuration(guild, targetId, settings);
   const muteDuration = muteMins * 60 * 1000;
 
   // Build voter list with (really?) for self-voters
@@ -73,7 +75,7 @@ async function executeMute(guild, targetId, channel, votes, settings) {
     reminderChannels.set(guild.id, channel.id);
     recordMute(guild.id, targetId, votes);
 
-    const durationDisplay = multiplier > 1 ? `${muteMins} min (${multiplier}x)` : `${muteMins} min`;
+    const durationDisplay = muteMins !== settings.muteDuration ? `${muteMins} min (exponential)` : `${muteMins} min`;
     auditLog(_client, guild.id, {
       action: 'MUTED',
       target: targetId,
@@ -322,10 +324,11 @@ async function handleButton(interaction, client) {
     if (vote.votes.size >= vote.votesNeeded) {
       activeVotes.delete(voteKey);
 
+      const effectiveDuration = getEffectiveMuteDuration(guild, vote.targetId, settings);
       const passedEmbed = new EmbedBuilder()
         .setColor(0x00ff00)
         .setTitle(theme.votePassed)
-        .setDescription(t(theme.votePassedDescription, { target: vote.targetTag, duration: settings.muteDuration }))
+        .setDescription(t(theme.votePassedDescription, { target: vote.targetTag, duration: effectiveDuration }))
         .addFields(
           { name: 'Votes', value: `${vote.votes.size}/${vote.votesNeeded}`, inline: true },
           { name: theme.votersLabel, value: [...vote.votes].map(id => `<@${id}>`).join(', ') },
