@@ -128,12 +128,9 @@ If you need it to be even easier, here's a Docker setup:
 # Make sure you've created your .env file (see Step 3)
 # Then just:
 docker compose up -d
-
-# Deploy slash commands (do this once)
-docker compose exec votemute node src/deploy-commands.js
 ```
 
-That's it. The `data/` folder is mounted so your stats persist across container restarts.
+That's it. Slash commands are automatically registered on first run. The `data/` folder is mounted so your stats persist across container restarts.
 
 To stop: `docker compose down`
 To see logs: `docker compose logs -f votemute`

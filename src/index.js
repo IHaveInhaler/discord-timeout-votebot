@@ -1,5 +1,7 @@
-const { Client, GatewayIntentBits, ActivityType, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, ActivityType, EmbedBuilder, REST, Routes, SlashCommandBuilder } = require('discord.js');
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 
 const { recentChatters, getSettings, getActiveChatters, getStats, reminderChannels, trackChatter } = require('./utils/state');
 const { getActivityMessage, reminderTips, calloutTemplates } = require('./utils/display');
@@ -67,8 +69,42 @@ setClient(client);
 setupEvents(client);
 
 // Bot ready
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
+
+  // Auto-deploy slash commands on first run
+  const markerPath = path.join(__dirname, '..', 'data', '.commands-deployed');
+  if (!fs.existsSync(markerPath)) {
+    try {
+      console.log('First run detected — registering slash commands...');
+      const commands = [
+        new SlashCommandBuilder()
+          .setName('votemute')
+          .setDescription('Start a vote to mute a user')
+          .addUserOption(option =>
+            option.setName('user')
+              .setDescription('The user to vote mute')
+              .setRequired(true),
+          ),
+        new SlashCommandBuilder()
+          .setName('vm')
+          .setDescription('Vote mute settings')
+          .addSubcommand(sub => sub.setName('view').setDescription('View current vote mute settings'))
+          .addSubcommand(sub => sub.setName('configure').setDescription('Configure vote mute settings (Admin only)'))
+          .addSubcommand(sub => sub.setName('setup').setDescription('Setup guide and compatibility checks'))
+          .addSubcommand(sub => sub.setName('theme').setDescription('Change the bot theme (Law & Order, Pirate, WWE, etc.)')),
+      ].map(cmd => cmd.toJSON());
+
+      const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+      await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+
+      fs.mkdirSync(path.dirname(markerPath), { recursive: true });
+      fs.writeFileSync(markerPath, new Date().toISOString());
+      console.log('Commands registered successfully!');
+    } catch (err) {
+      console.error('Failed to auto-deploy commands:', err);
+    }
+  }
 
   // Update activity status every 30 seconds
   const updateActivity = () => {
