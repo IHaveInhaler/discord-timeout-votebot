@@ -1,15 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const { getSettings, getActiveChatters, activeVotes, boosterImmunity, voteCooldowns, activeMutes, reminderChannels, initiatorCooldowns, recordMute, recordFailedVote } = require('../utils/state');
-
-const selfMuteReactions = [
-  'Why did they vote to mute themselves?? Down bad fr.',
-  'Bro really said "I deserve this" and voted to mute himself.',
-  'Self-report of the century. They muted THEMSELVES.',
-  'Average "I need a break from talking" enjoyer.',
-  'They couldn\'t wait for someone else to do it, huh?',
-  'Main character syndrome: even votes to mute themselves for attention.',
-  'Most self-aware user in this server.',
-];
+const { selfMuteReactions } = require('../utils/display');
 
 function buildProgressBar(current, total, barLength = 16) {
   const filled = Math.round((current / total) * barLength);

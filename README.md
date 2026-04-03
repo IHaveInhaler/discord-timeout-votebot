@@ -188,6 +188,27 @@ All configurable via `/vm configure`:
 | Periodic Reminders | OFF | Fun tips posted every 2 hours |
 | Random Callouts | OFF | Roasts users based on their mute stats |
 
+## Customizing Text & Messages
+
+All the bot's text is stored in easy-to-edit JSON files under `src/text/`. Want to change what the bot says? Just edit the files:
+
+```
+src/text/
+  activity/
+    status_messages.json    - Bot status messages ("Herding 8 caffeinated cats")
+  callouts/
+    trigger_happy.json      - Roasts for people who vote a lot
+    most_muted.json         - Roasts for people who get muted a lot
+    rivalry.json             - Messages about vote rivalries
+    silent_warrior.json     - Messages about people who vote but never get muted
+  reactions/
+    self_mute.json          - Reactions when someone votes to mute themselves
+  reminders/
+    tips.json               - Periodic tip messages
+```
+
+Templates use `{user}` for mentions, `{count}` for numbers, `{target}` for rival mentions, and `{n}` for chatter count. Just edit the JSON arrays — add, remove, or change messages. No code changes needed, just restart the bot.
+
 ## How Does It Count Active Users?
 
 The bot listens to every message sent in the server. Each time someone sends a message, it records their user ID and a timestamp. When a vote mute is initiated, the bot looks back within the **Activity Window** (default: 5 minutes) and counts how many unique users sent at least one message during that time.
